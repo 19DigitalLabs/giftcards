@@ -5,17 +5,17 @@ import { cn } from "@platform/utils";
 import { brandInitials } from "@/lib/giftcards";
 
 const sizes = {
-  sm: "size-10 rounded-xl text-sm",
-  md: "size-14 rounded-2xl text-lg",
-  lg: "size-24 rounded-3xl text-3xl",
+  sm: "size-10 text-sm",
+  md: "size-14 text-lg",
+  lg: "size-24 text-3xl",
 } as const;
 
-const pads = { sm: "p-1.5", md: "p-2", lg: "p-3.5" } as const;
+const pads = { sm: "p-1", md: "p-2", lg: "p-3" } as const;
 
 /**
- * Brand logo (from /public/logos/{slug}.png) on a white tile so dark logos
- * stay visible on the dark theme. Falls back to colored initials if the
- * image is missing or fails to load.
+ * Circular brand logo (from /public/logos/{slug}.png) on a white disc so
+ * dark logos stay visible on the dark theme. Falls back to colored initials
+ * if the image is missing or fails to load.
  */
 export function BrandChip({
   name,
@@ -37,7 +37,7 @@ export function BrandChip({
       <div
         aria-hidden
         className={cn(
-          "flex shrink-0 items-center justify-center font-display font-extrabold text-white",
+          "flex shrink-0 items-center justify-center rounded-full font-display font-extrabold text-white",
           sizes[size],
           className,
         )}
@@ -51,7 +51,7 @@ export function BrandChip({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center bg-white",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white",
         sizes[size],
         pads[size],
         className,
@@ -62,7 +62,7 @@ export function BrandChip({
         src={`/logos/${slug}.png`}
         alt={`${name} logo`}
         loading="lazy"
-        className="size-full object-contain"
+        className="size-full rounded-full object-contain"
         onError={() => setFailed(true)}
       />
     </div>
