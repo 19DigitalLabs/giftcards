@@ -1,0 +1,108 @@
+/*
+ * gifts19 — its own standalone theme. Deliberately shares NOTHING with the
+ * platform design system: dark "neon night" ground, lime CTA, violet/pink
+ * pops, pill shapes and big radii, Bricolage Grotesque display type.
+ */
+@import "tailwindcss";
+
+@theme {
+  /* Clear Tailwind's stock palettes/fonts so only these tokens compile. */
+  --color-*: initial;
+  --font-*: initial;
+
+  /* ── Ground: deep violet-black night ─────────────────────────────────── */
+  --color-background: #0a0614;
+  --color-foreground: #f4f1ff;
+
+  /* Raised surfaces: cards, inputs. */
+  --color-card: #151024;
+  --color-card-foreground: #f4f1ff;
+
+  /* Recessed fills + secondary text. */
+  --color-muted: #1d1631;
+  --color-muted-foreground: #a89ec6;
+
+  /* Hairlines — soft white glass edges, never hard rules. */
+  --color-border: color-mix(in srgb, #f4f1ff 14%, transparent);
+
+  /* ── Primary CTA: electric lime ──────────────────────────────────────── */
+  --color-primary: #d8ff3e;
+  --color-primary-foreground: #141604;
+  --color-primary-strong: #c9f42a;
+  --color-primary-pressed: #aed617;
+
+  /* ── Accent: violet, with soft glass fills ───────────────────────────── */
+  --color-accent: #8b5cf6;
+  --color-accent-foreground: #cdb8ff;
+  --color-accent-soft: color-mix(in srgb, #8b5cf6 18%, transparent);
+  --color-accent-soft-border: color-mix(in srgb, #8b5cf6 40%, transparent);
+
+  /* Extra pops for stickers/gradients. */
+  --color-pink: #ff5fd2;
+  --color-cyan: #45e3ff;
+  --color-orange: #ff9d3c;
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-sans: var(--font-space-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  --font-display: var(--font-bricolage, "Bricolage Grotesque"), var(--font-sans);
+  --font-mono: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+
+  /* ── Shape: big, soft, pill-happy ────────────────────────────────────── */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2.25rem;
+
+  /* ── Glow shadows ────────────────────────────────────────────────────── */
+  --shadow-glow: 0 0 28px color-mix(in srgb, #d8ff3e 30%, transparent);
+  --shadow-glow-lg: 0 0 44px color-mix(in srgb, #d8ff3e 45%, transparent);
+  --shadow-violet: 0 12px 44px color-mix(in srgb, #8b5cf6 35%, transparent);
+
+  /* ── Motion ──────────────────────────────────────────────────────────── */
+  /* Marquee strip (content duplicated once, so -50% loops seamlessly). */
+  --animate-ticker: ticker 24s linear infinite;
+  @keyframes ticker {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  /* Lazy bob for emoji stickers. */
+  --animate-float: float 5s ease-in-out infinite;
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-6deg);
+    }
+    50% {
+      transform: translateY(-14px) rotate(6deg);
+    }
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Gradient headline text — the signature move of this theme. */
+.text-gradient {
+  background: linear-gradient(100deg, #8b5cf6 0%, #ff5fd2 45%, #ff9d3c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

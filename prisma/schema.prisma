@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  /// Payment method id from lib/payments.ts, picked on brand/checkout pages.
+  preferredPaymentMethod String @default("upi")
+  createdAt    DateTime   @default(now())
+  sessions     Session[]
+  cartItems    CartItem[]
+  orders       Order[]
+  favorites    Favorite[]
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
+}
+
+model Session {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Brand {
+  id            String      @id @default(cuid())
+  slug          String      @unique
+  name          String
+  category      String
+  description   String
+  /// Brand color (hex) for the initials chip — data, not theme.
+  color         String
+  /// Base cashback rate (the UPI rate); other payment methods scale it.
+  cashbackPct   Float
+  /// JSON array of rupee face values, e.g. "[250,500,1000]" (SQLite has no arrays).
+  denominations String
+  /// JSON array of numbered redemption steps.
+  howToRedeem   String
+  /// JSON array of terms & conditions bullets.
+  terms         String
+  /// Voucher validity from delivery.
+  validityMonths Int        @default(12)
+  featured      Boolean     @default(false)
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  favorites     Favorite[]
+}
+
+/// A home-page carousel slide pointing at a brand.
+model Offer {
+  id        String @id @default(cuid())
+  title     String
+  subtitle  String
+  badge     String
+  brandSlug String
+  sort      Int    @default(0)
+}
+
+model CartItem {
+  id           String @id @default(cuid())
+  userId       String
+  brandId      String
+  denomination Int
+  quantity     Int
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand        Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId, denomination])
+}
+
+model Order {
+  /// Human-readable id, e.g. "GC-4F2A9C1B".
+  id            String      @id
+  userId        String
+  /// COMPLETED | FAILED — outcomes of the simulated payment gateway.
+  status        String
+  /// Face value of all cards (what the vouchers are worth).
+  subtotal      Int
+  /// Convenience fee for the chosen payment method (0 for UPI).
+  fee           Int
+  /// Amount charged = subtotal + fee.
+  total         Int
+  /// Cashback earned on this order (credited to wallet when COMPLETED).
+  cashback      Int
+  /// Payment method id from lib/payments.ts, e.g. "upi", "credit-card".
+  paymentMethod String
+  paymentRef    String
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id           String @id @default(cuid())
+  orderId      String
+  brandId      String
+  brandName    String
+  denomination Int
+  quantity     Int
+  /// Brand's base cashback rate at purchase time.
+  cashbackPct  Float
+  /// JSON array of dummy voucher codes, one per unit; "[]" for failed orders.
+  codes        String
+  order        Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brand        Brand  @relation(fields: [brandId], references: [id])
+}
