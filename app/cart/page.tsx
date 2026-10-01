@@ -5,10 +5,11 @@ import { removeItemAction, setQuantityAction } from "@/lib/actions/cart";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatGems } from "@/lib/giftcards";
+import { MAX_ORDER_VALUE } from "@/lib/orders";
 import { convenienceFee, methodCashback } from "@/lib/payments";
 import { getPreferredMethod } from "@/lib/prefs";
 import { BrandChip } from "@/components/brand-chip";
-import { buttonClasses, Card, Section } from "@/components/ui";
+import { buttonClasses, Card, Notice, Section } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Cart" };
 
@@ -78,13 +79,27 @@ export default async function CartPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <form action={setQuantityAction.bind(null, item.id, item.quantity - 1)}>
+                <form
+                  action={setQuantityAction.bind(
+                    null,
+                    item.id,
+                    item.quantity - 1,
+                  )}
+                >
                   <button aria-label="Decrease quantity" className={stepButton}>
                     −
                   </button>
                 </form>
-                <span className="w-6 text-center font-bold">{item.quantity}</span>
-                <form action={setQuantityAction.bind(null, item.id, item.quantity + 1)}>
+                <span className="w-6 text-center font-bold">
+                  {item.quantity}
+                </span>
+                <form
+                  action={setQuantityAction.bind(
+                    null,
+                    item.id,
+                    item.quantity + 1,
+                  )}
+                >
                   <button aria-label="Increase quantity" className={stepButton}>
                     +
                   </button>
@@ -131,6 +146,13 @@ export default async function CartPage() {
             1 Gem = ₹1, credited to your wallet. You can switch the payment
             method at checkout.
           </p>
+          {subtotal > MAX_ORDER_VALUE && (
+            <Notice variant="error" className="mt-4 text-xs">
+              Orders are capped at {formatRupee(MAX_ORDER_VALUE)} of gift cards
+              — trim this cart by {formatRupee(subtotal - MAX_ORDER_VALUE)} to
+              check out.
+            </Notice>
+          )}
           <Link
             href="/checkout"
             className={`mt-6 w-full ${buttonClasses({ size: "lg" })}`}

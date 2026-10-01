@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { setPaymentMethodAction, toggleFavoriteAction } from "@/lib/actions/prefs";
+import {
+  setPaymentMethodAction,
+  toggleFavoriteAction,
+} from "@/lib/actions/prefs";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { categoryEmoji, parseDenominations } from "@/lib/giftcards";
@@ -64,12 +67,16 @@ export default async function BrandPage({ params }: Props) {
                   {brand.name}
                 </h1>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Tag variant="lime">💎 Up to {brand.cashbackPct}% back in Gems</Tag>
+                  <Tag variant="lime">
+                    💎 Up to {brand.cashbackPct}% back in Gems
+                  </Tag>
                   <Tag variant="pink">Valid {brand.validityMonths} months</Tag>
                 </div>
               </div>
             </div>
-            <form action={toggleFavoriteAction.bind(null, brand.id, brand.slug)}>
+            <form
+              action={toggleFavoriteAction.bind(null, brand.id, brand.slug)}
+            >
               <button
                 aria-pressed={isFavorite}
                 className={cn(
@@ -100,7 +107,10 @@ export default async function BrandPage({ params }: Props) {
             {PAYMENT_METHODS.map((m, i) => {
               const selected = m.id === method.id;
               return (
-                <form key={m.id} action={setPaymentMethodAction.bind(null, m.id)}>
+                <form
+                  key={m.id}
+                  action={setPaymentMethodAction.bind(null, m.id)}
+                >
                   <button
                     aria-pressed={selected}
                     className={cn(
@@ -113,7 +123,9 @@ export default async function BrandPage({ params }: Props) {
                       <span
                         className={cn(
                           "size-4 shrink-0 rounded-full border-2",
-                          selected ? "border-primary bg-primary" : "border-border",
+                          selected
+                            ? "border-primary bg-primary"
+                            : "border-border",
                         )}
                       />
                       <span className="min-w-0">

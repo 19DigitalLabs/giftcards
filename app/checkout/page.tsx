@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { formatRupee } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { MAX_ORDER_VALUE } from "@/lib/orders";
 import { getPreferredMethod } from "@/lib/prefs";
 import { CheckoutForm } from "@/components/checkout-form";
 import { Card, Section } from "@/components/ui";
@@ -65,6 +66,11 @@ export default async function CheckoutPage() {
               subtotal={subtotal}
               baseCashback={baseCashback}
               initialMethodId={method.id}
+              blockedReason={
+                subtotal > MAX_ORDER_VALUE
+                  ? `Orders are capped at ${formatRupee(MAX_ORDER_VALUE)} of gift cards — remove a few from your cart and buy the rest in another order.`
+                  : undefined
+              }
             />
           </div>
         </Card>

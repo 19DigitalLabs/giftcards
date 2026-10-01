@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { cn, formatRupee } from "@/lib/utils";
-import { payAction } from "@/lib/actions/checkout";
+import {
+  startCheckoutAction,
+  type CheckoutState,
+} from "@/lib/actions/checkout";
 import { setPaymentMethodAction } from "@/lib/actions/prefs";
 import { formatGems } from "@/lib/giftcards";
 import {
@@ -11,38 +14,48 @@ import {
   PAYMENT_METHODS,
 } from "@/lib/payments";
 import { SubmitButton } from "@/components/submit-button";
+import { Notice } from "@/components/ui";
 
 /**
- * Dummy payment step. Picking a payment method changes the convenience fee
- * and cashback (UPI = free + full rate, like Zingoy/Maximize/OnPoints).
- * The radio at the bottom picks which outcome the simulated gateway returns.
+ * Payment step. Picking a method changes the convenience fee and cashback
+ * (UPI = free + full rate, like Zingoy/Maximize/OnPoints). Paying creates a
+ * pending order and hands off to the payment gateway's page.
  */
 export function CheckoutForm({
   subtotal,
   baseCashback,
   initialMethodId,
+  blockedReason,
 }: {
   subtotal: number;
   /** Cashback at the full/UPI rate, unrounded. */
   baseCashback: number;
   /** The method remembered from the brand page picker. */
   initialMethodId: string;
+  /** Set when the order can't be placed (e.g. over the order limit). */
+  blockedReason?: string;
 }) {
   const [methodId, setMethodId] = useState(initialMethodId);
-  const method = PAYMENT_METHODS.find((m) => m.id === methodId) ?? PAYMENT_METHODS[0]!;
+  const [state, formAction] = useActionState<CheckoutState, FormData>(
+    startCheckoutAction,
+    {},
+  );
+  const method =
+    PAYMENT_METHODS.find((m) => m.id === methodId) ?? PAYMENT_METHODS[0]!;
 
   const fee = convenienceFee(subtotal, method);
   const cashback = methodCashback(baseCashback, method);
   const total = subtotal + fee;
 
   return (
-    <form action={payAction} className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <input type="hidden" name="paymentMethod" value={method.id} />
 
-      <p className="rounded-2xl border border-accent-soft-border bg-accent-soft px-4 py-3 text-xs font-bold text-accent-foreground">
-        🧪 Demo checkout — no real money moves. Payment is simulated in place
-        of a third-party gateway (Razorpay/PayU) to be integrated later.
-      </p>
+      <Notice variant="info" className="text-xs">
+        🧪 Test mode — you&apos;ll go to a mock payment page standing in for the
+        real gateway (Razorpay/PayU), where you pick success, pending or
+        failure. No real money moves.
+      </Notice>
 
       <div>
         <p className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
@@ -74,8 +87,8 @@ export function CheckoutForm({
                     {m.emoji} {m.label}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    {mFee > 0 ? `+${formatRupee(mFee)} fee` : "No fee ✅"} · earn{" "}
-                    {formatGems(mCashback)} 💎
+                    {mFee > 0 ? `+${formatRupee(mFee)} fee` : "No fee ✅"} ·
+                    earn {formatGems(mCashback)} 💎
                   </span>
                 </span>
                 <span
@@ -112,27 +125,15 @@ export function CheckoutForm({
         <p className="text-xs text-muted-foreground">1 Gem = ₹1.</p>
       </dl>
 
-      <fieldset className="rounded-2xl border border-border p-4 text-sm">
-        <legend className="px-2 text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
-          Simulate gateway response
-        </legend>
-        <label className="flex items-center gap-2 font-bold">
-          <input
-            type="radio"
-            name="outcome"
-            value="success"
-            defaultChecked
-            className="accent-primary"
-          />
-          Payment succeeds ✅
-        </label>
-        <label className="mt-2 flex items-center gap-2 font-bold">
-          <input type="radio" name="outcome" value="failure" className="accent-pink" />
-          Payment fails ❌
-        </label>
-      </fieldset>
+      {blockedReason && <Notice variant="error">{blockedReason}</Notice>}
+      {state.error && <Notice variant="error">{state.error}</Notice>}
 
-      <SubmitButton size="lg" className="w-full" pendingLabel="Processing payment…">
+      <SubmitButton
+        size="lg"
+        className="w-full"
+        disabled={Boolean(blockedReason)}
+        pendingLabel="Taking you to payment…"
+      >
         Pay {formatRupee(total)} →
       </SubmitButton>
     </form>

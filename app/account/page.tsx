@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
-import { logoutAction } from "@/lib/actions/auth";
+import { logoutAction, logoutEverywhereAction } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatGems } from "@/lib/giftcards";
 import { getPreferredMethod } from "@/lib/prefs";
 import { BrandCard } from "@/components/brand-card";
-import { Button, Card, Section } from "@/components/ui";
+import { ChangePasswordForm } from "@/components/password-forms";
+import { Button, Card, Notice, Section } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Account" };
 
-const label = "text-xs font-extrabold tracking-widest text-muted-foreground uppercase";
+const label =
+  "text-xs font-extrabold tracking-widest text-muted-foreground uppercase";
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("/account");
+  const { password } = await searchParams;
   const [orderCount, wallet, favorites, method] = await Promise.all([
     db.order.count({ where: { userId: user.id } }),
     db.order.aggregate({
@@ -35,6 +42,11 @@ export default async function AccountPage() {
       <h1 className="font-display text-4xl font-extrabold tracking-tight">
         Your account
       </h1>
+      {password === "reset" && (
+        <Notice variant="success" className="mt-6">
+          Password reset ✓ — you&apos;ve been signed out of every other device.
+        </Notice>
+      )}
 
       <div className="mt-7 rounded-3xl bg-gradient-to-br from-accent/30 via-pink/20 to-orange/15 p-6">
         <p className={label}>Gems wallet 💎</p>
@@ -51,7 +63,9 @@ export default async function AccountPage() {
         <dl className="space-y-4 text-sm">
           <div>
             <dt className={label}>Name</dt>
-            <dd className="mt-0.5 font-display text-lg font-extrabold">{user.name}</dd>
+            <dd className="mt-0.5 font-display text-lg font-extrabold">
+              {user.name}
+            </dd>
           </div>
           <div>
             <dt className={label}>Email</dt>
@@ -59,7 +73,9 @@ export default async function AccountPage() {
           </div>
           <div>
             <dt className={label}>Member since</dt>
-            <dd className="mt-0.5">{formatDate(user.createdAt.toISOString())}</dd>
+            <dd className="mt-0.5">
+              {formatDate(user.createdAt.toISOString())}
+            </dd>
           </div>
           <div>
             <dt className={label}>Preferred payment</dt>
@@ -74,17 +90,39 @@ export default async function AccountPage() {
             <dt className={label}>Orders</dt>
             <dd className="mt-0.5">
               {orderCount} ·{" "}
-              <Link href="/orders" className="font-bold text-primary hover:underline">
+              <Link
+                href="/orders"
+                className="font-bold text-primary hover:underline"
+              >
                 view all
               </Link>
             </dd>
           </div>
         </dl>
-        <form action={logoutAction} className="mt-7">
-          <Button variant="outline" className="w-full">
-            Log out 👋
-          </Button>
-        </form>
+        <div className="mt-7 grid gap-3 sm:grid-cols-2">
+          <form action={logoutAction}>
+            <Button variant="outline" className="w-full">
+              Log out 👋
+            </Button>
+          </form>
+          <form action={logoutEverywhereAction}>
+            <Button variant="ghost" className="w-full">
+              Log out of all devices
+            </Button>
+          </form>
+        </div>
+      </Card>
+
+      <Card className="mt-4">
+        <h2 className="font-display text-lg font-extrabold">
+          Change password 🔐
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Other devices get signed out when you change it.
+        </p>
+        <div className="mt-5">
+          <ChangePasswordForm />
+        </div>
       </Card>
 
       <h2 className="mt-10 font-display text-2xl font-extrabold tracking-tight">
@@ -93,7 +131,10 @@ export default async function AccountPage() {
       {favorites.length === 0 ? (
         <p className="mt-4 rounded-3xl border border-border bg-card p-6 text-sm text-muted-foreground">
           Nothing saved yet — tap ♡ Save on any{" "}
-          <Link href="/brands" className="font-bold text-primary hover:underline">
+          <Link
+            href="/brands"
+            className="font-bold text-primary hover:underline"
+          >
             gift card page
           </Link>{" "}
           and it&apos;ll show up here.

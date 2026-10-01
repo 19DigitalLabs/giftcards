@@ -4,9 +4,15 @@ import { cn } from "@/lib/utils";
 /* gifts19's own UI primitives — intentionally NOT the platform design
  * system. Pills, glass surfaces, lime glow. */
 
-export function Container({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function Container({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)} {...props} />
+    <div
+      className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)}
+      {...props}
+    />
   );
 }
 
@@ -14,7 +20,12 @@ export interface SectionProps extends HTMLAttributes<HTMLElement> {
   containerClassName?: string;
 }
 
-export function Section({ className, containerClassName, children, ...props }: SectionProps) {
+export function Section({
+  className,
+  containerClassName,
+  children,
+  ...props
+}: SectionProps) {
   return (
     <section className={cn("py-16 sm:py-24", className)} {...props}>
       <Container className={containerClassName}>{children}</Container>
@@ -38,7 +49,8 @@ const buttonBase =
 const buttonVariants = {
   primary:
     "bg-primary text-primary-foreground shadow-glow hover:bg-primary-strong hover:shadow-glow-lg active:bg-primary-pressed",
-  outline: "border border-border bg-foreground/5 text-foreground hover:bg-foreground/10",
+  outline:
+    "border border-border bg-foreground/5 text-foreground hover:bg-foreground/10",
   ghost: "text-accent-foreground hover:bg-accent-soft",
 } as const;
 
@@ -67,11 +79,15 @@ export function buttonClasses({
 }
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    ButtonStyleProps {}
+  extends ButtonHTMLAttributes<HTMLButtonElement>, ButtonStyleProps {}
 
 export function Button({ variant, size, className, ...props }: ButtonProps) {
-  return <button className={buttonClasses({ variant, size, className })} {...props} />;
+  return (
+    <button
+      className={buttonClasses({ variant, size, className })}
+      {...props}
+    />
+  );
 }
 
 const tagVariants = {
@@ -94,6 +110,37 @@ export function Tag({ variant = "neutral", className, ...props }: TagProps) {
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 text-xs font-bold tracking-wider uppercase",
         tagVariants[variant],
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** Text input styles shared by every form. */
+export const inputClasses =
+  "h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm outline-none transition-colors focus:border-primary/60 placeholder:text-muted-foreground";
+
+const noticeVariants = {
+  error: "border-pink/40 bg-pink/10 text-pink",
+  success: "border-primary/40 bg-primary/10 text-primary",
+  info: "border-accent-soft-border bg-accent-soft text-accent-foreground",
+} as const;
+
+/** Inline banner for form errors, confirmations and notes. */
+export function Notice({
+  variant = "info",
+  className,
+  ...props
+}: HTMLAttributes<HTMLParagraphElement> & {
+  variant?: keyof typeof noticeVariants;
+}) {
+  return (
+    <p
+      role={variant === "error" ? "alert" : "status"}
+      className={cn(
+        "rounded-2xl border px-4 py-3 text-sm font-bold",
+        noticeVariants[variant],
         className,
       )}
       {...props}

@@ -93,7 +93,9 @@ export function OfferCarousel({ offers }: { offers: CarouselOffer[] }) {
                 onClick={() => setIndex(i)}
                 className={cn(
                   "h-2.5 rounded-full transition-all",
-                  i === index ? "w-8 bg-primary" : "w-2.5 bg-muted hover:bg-accent-soft-border",
+                  i === index
+                    ? "w-8 bg-primary"
+                    : "w-2.5 bg-muted hover:bg-accent-soft-border",
                 )}
               />
             ))}

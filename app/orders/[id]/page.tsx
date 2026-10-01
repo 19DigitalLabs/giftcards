@@ -5,12 +5,22 @@ import { formatDate, formatRupee } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatGems } from "@/lib/giftcards";
+import { decryptCodes, reconcileOrder } from "@/lib/orders";
 import { getPaymentMethod } from "@/lib/payments";
 import { BrandChip } from "@/components/brand-chip";
 import { OrderStatusTag } from "@/components/order-status-tag";
-import { buttonClasses, Card, Section, Tag } from "@/components/ui";
+import { buttonClasses, Card, Notice, Section, Tag } from "@/components/ui";
+import { VoucherCode } from "@/components/voucher-code";
 
 export const metadata: Metadata = { title: "Order details" };
+
+const PAYMENT_LABEL: Record<string, string> = {
+  CREATED: "⌛ not completed",
+  PENDING: "⏳ pending",
+  SUCCESS: "✅ success",
+  FAILED: "❌ failed",
+  CANCELLED: "↩️ cancelled",
+};
 
 export default async function OrderPage({
   params,
@@ -19,11 +29,19 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
   const user = await requireUser(`/orders/${id}`);
-  const order = await db.order.findUnique({
+  const owned = await db.order.findUnique({
     where: { id },
-    include: { items: { include: { brand: true } } },
+    select: { userId: true, status: true },
   });
-  if (!order || order.userId !== user.id) notFound();
+  if (!owned || owned.userId !== user.id) notFound();
+  if (owned.status === "PENDING") await reconcileOrder(id);
+  const order = await db.order.findUniqueOrThrow({
+    where: { id },
+    include: {
+      items: { include: { brand: true } },
+      payments: { orderBy: { createdAt: "desc" } },
+    },
+  });
 
   const method = getPaymentMethod(order.paymentMethod);
 
@@ -39,27 +57,41 @@ export default async function OrderPage({
         )}
       </div>
       <p className="mt-3 text-sm text-muted-foreground">
-        Placed {formatDate(order.createdAt.toISOString())} · Paid via{" "}
-        {method ? `${method.emoji} ${method.label}` : order.paymentMethod} · Ref{" "}
-        <span className="font-mono">{order.paymentRef}</span>
+        Placed {formatDate(order.createdAt.toISOString())} ·{" "}
+        {order.status === "COMPLETED" ? "Paid via" : "Paying via"}{" "}
+        {method ? `${method.emoji} ${method.label}` : order.paymentMethod}
+        {order.paymentRef && (
+          <>
+            {" "}
+            · Ref <span className="font-mono">{order.paymentRef}</span>
+          </>
+        )}
       </p>
 
-      {order.status === "FAILED" && (
-        <p className="mt-6 max-w-2xl rounded-3xl border border-pink/40 bg-pink/10 p-5 text-sm font-bold text-pink">
-          Payment failed — you were not charged and no codes were issued. Your
-          cart was kept, so you can{" "}
-          <Link href="/cart" className="underline">
-            try again from the cart
+      {order.status !== "COMPLETED" && (
+        <Notice
+          variant={order.status === "PENDING" ? "info" : "error"}
+          className="mt-6 max-w-2xl"
+        >
+          {order.status === "PENDING"
+            ? "Payment not confirmed yet — voucher codes appear here as soon as it is."
+            : `${order.failureReason ?? "Payment didn't go through."} No codes were issued.`}{" "}
+          <Link href={`/payment/status/${order.id}`} className="underline">
+            {order.status === "PENDING"
+              ? "Check payment status"
+              : "Retry payment"}
           </Link>
-          .
-        </p>
+        </Notice>
       )}
 
       <ul className="mt-8 space-y-4">
         {order.items.map((item) => {
-          const codes = JSON.parse(item.codes) as string[];
+          const codes = decryptCodes(item.codes);
           return (
-            <li key={item.id} className="rounded-3xl border border-border bg-card p-5">
+            <li
+              key={item.id}
+              className="rounded-3xl border border-border bg-card p-5"
+            >
               <div className="flex flex-wrap items-center gap-4">
                 <BrandChip
                   name={item.brandName}
@@ -86,14 +118,19 @@ export default async function OrderPage({
                   </p>
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {codes.map((code) => (
-                      <li
-                        key={code}
-                        className="rounded-full bg-primary/10 px-4 py-2 font-mono text-sm font-bold text-primary"
-                      >
-                        {code}
+                      <li key={code}>
+                        <VoucherCode code={code} />
                       </li>
                     ))}
                   </ul>
+                  {item.expiresAt && (
+                    <p
+                      className={`mt-3 text-xs font-bold ${item.expiresAt < new Date() ? "text-pink" : "text-muted-foreground"}`}
+                    >
+                      {item.expiresAt < new Date() ? "Expired" : "Valid till"}{" "}
+                      {formatDate(item.expiresAt.toISOString())}
+                    </p>
+                  )}
                   <p className="mt-3 text-xs text-muted-foreground">
                     How to redeem + full T&Cs are on the{" "}
                     <Link
@@ -135,6 +172,35 @@ export default async function OrderPage({
           )}
         </dl>
       </Card>
+
+      {order.payments.length > 0 && (
+        <Card className="mt-4 max-w-sm">
+          <h2 className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
+            Payment attempts
+          </h2>
+          <ul className="mt-3 space-y-2.5 text-sm">
+            {order.payments.map((p) => (
+              <li key={p.id} className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block font-mono text-xs break-all">
+                    {p.gatewayPaymentId}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {p.createdAt.toLocaleString("en-IN", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {p.failureReason && ` · ${p.failureReason}`}
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs font-bold">
+                  {PAYMENT_LABEL[p.status] ?? p.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Link
         href="/orders"

@@ -12,7 +12,10 @@ export function formatGems(amount: number): string {
 }
 
 /** Cashback earned (at the base/UPI rate) on one card of this face value. */
-export function cashbackAmount(denomination: number, cashbackPct: number): number {
+export function cashbackAmount(
+  denomination: number,
+  cashbackPct: number,
+): number {
   return Math.round((denomination * cashbackPct) / 100);
 }
 

@@ -11,11 +11,17 @@ model User {
   id           String     @id @default(cuid())
   email        String     @unique
   name         String
+  /// scrypt hash, "salt:hash" hex (lib/password.ts). Never the password.
   passwordHash String
   /// Payment method id from lib/payments.ts, picked on brand/checkout pages.
   preferredPaymentMethod String @default("upi")
+  /// Consecutive failed logins; reset on success. Drives the lockout below.
+  failedLogins Int        @default(0)
+  /// Logins are refused until this time (brute-force lockout).
+  lockedUntil  DateTime?
   createdAt    DateTime   @default(now())
   sessions     Session[]
+  resetTokens  PasswordResetToken[]
   cartItems    CartItem[]
   orders       Order[]
   favorites    Favorite[]
@@ -33,11 +39,26 @@ model Favorite {
 }
 
 model Session {
-  token     String   @id
+  /// SHA-256 of the cookie token, so a leaked DB can't be replayed as logins.
+  tokenHash String   @id
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// One-time password reset link; only the SHA-256 of the token is stored.
+model PasswordResetToken {
+  tokenHash String    @id
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Brand {
@@ -90,26 +111,58 @@ model Order {
   /// Human-readable id, e.g. "GC-4F2A9C1B".
   id            String      @id
   userId        String
-  /// COMPLETED | FAILED — outcomes of the simulated payment gateway.
-  status        String
+  /// PENDING (awaiting payment) | COMPLETED (paid, codes issued) | FAILED
+  /// (payment failed or expired) | CANCELLED (buyer backed out at the gateway).
+  status        String      @default("PENDING")
   /// Face value of all cards (what the vouchers are worth).
   subtotal      Int
   /// Convenience fee for the chosen payment method (0 for UPI).
   fee           Int
   /// Amount charged = subtotal + fee.
   total         Int
-  /// Cashback earned on this order (credited to wallet when COMPLETED).
+  /// Cashback the order earns (credited to the wallet only when COMPLETED).
   cashback      Int
   /// Payment method id from lib/payments.ts, e.g. "upi", "credit-card".
   paymentMethod String
-  paymentRef    String
+  /// Gateway payment id of the attempt that succeeded.
+  paymentRef    String?
+  failureReason String?
+  paidAt        DateTime?
   createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   items         OrderItem[]
+  payments      Payment[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// One attempt to pay for an order at the payment gateway.
+model Payment {
+  id               String   @id @default(cuid())
+  orderId          String
+  /// Gateway adapter id from lib/gateway, e.g. "mock" (later "razorpay").
+  gateway          String
+  /// The gateway's own id for this payment.
+  gatewayPaymentId String   @unique
+  method           String
+  /// Rupees requested — checked against what the gateway reports back.
+  amount           Int
+  /// CREATED | PENDING | SUCCESS | FAILED | CANCELLED
+  status           String   @default("CREATED")
+  failureReason    String?
+  /// Gateway-specific JSON (the mock stores its simulated outcome here).
+  meta             String   @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model OrderItem {
-  id           String @id @default(cuid())
+  id           String    @id @default(cuid())
   orderId      String
   brandId      String
   brandName    String
@@ -117,8 +170,11 @@ model OrderItem {
   quantity     Int
   /// Brand's base cashback rate at purchase time.
   cashbackPct  Float
-  /// JSON array of dummy voucher codes, one per unit; "[]" for failed orders.
-  codes        String
-  order        Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  brand        Brand  @relation(fields: [brandId], references: [id])
+  /// AES-256-GCM encrypted JSON array of voucher codes (lib/crypto.ts), one
+  /// per unit; "" until the order is COMPLETED.
+  codes        String    @default("")
+  /// Vouchers expire this long after issue (Brand.validityMonths).
+  expiresAt    DateTime?
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brand        Brand     @relation(fields: [brandId], references: [id])
 }

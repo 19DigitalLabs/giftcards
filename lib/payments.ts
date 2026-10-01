@@ -64,7 +64,10 @@ export function getPaymentMethod(id: string): PaymentMethod | undefined {
 }
 
 /** Brand cashback % as actually earned via this method, e.g. 10 → 8. */
-export function effectiveCashbackPct(brandPct: number, method: PaymentMethod): number {
+export function effectiveCashbackPct(
+  brandPct: number,
+  method: PaymentMethod,
+): number {
   return Math.round(brandPct * method.cashbackFactor * 10) / 10;
 }
 
@@ -74,6 +77,9 @@ export function convenienceFee(amount: number, method: PaymentMethod): number {
 }
 
 /** Cashback in rupees: `baseCashback` (at UPI rate) scaled to the method. */
-export function methodCashback(baseCashback: number, method: PaymentMethod): number {
+export function methodCashback(
+  baseCashback: number,
+  method: PaymentMethod,
+): number {
   return Math.round(baseCashback * method.cashbackFactor);
 }

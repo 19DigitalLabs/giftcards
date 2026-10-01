@@ -9,12 +9,12 @@ import { buttonClasses, Container } from "@/components/ui";
 export async function SiteHeader() {
   const user = await getSessionUser();
   const cartCount = user
-    ? (
+    ? ((
         await db.cartItem.aggregate({
           _sum: { quantity: true },
           where: { userId: user.id },
         })
-      )._sum.quantity ?? 0
+      )._sum.quantity ?? 0)
     : 0;
 
   return (

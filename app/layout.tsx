@@ -32,7 +32,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${spaceGrotesk.variable}`}>
+    <html
+      lang="en"
+      className={`${bricolage.variable} ${spaceGrotesk.variable}`}
+    >
       <body className="flex min-h-svh flex-col">
         <SiteHeader />
         <main className="flex-1">{children}</main>

@@ -1,83 +1,128 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { convenienceFee, getPaymentMethod, methodCashback } from "@/lib/payments";
+import { getGatewayById } from "@/lib/gateway";
+import {
+  MOCK_PENDING_MS,
+  mockReturnUrl,
+  mockStatus,
+  type MockMeta,
+  type MockOutcome,
+} from "@/lib/gateway/mock";
+import {
+  CheckoutError,
+  createOrderFromCart,
+  reconcileOrder,
+  retryOrderPayment,
+} from "@/lib/orders";
+import { rateLimit, tooManyAttempts } from "@/lib/rate-limit";
 
-/** A dummy voucher code, e.g. "MYNT-8F2A-C41D-90BE". */
-function voucherCode(brandName: string): string {
-  const prefix = brandName.replace(/[^A-Za-z]/g, "").slice(0, 4).toUpperCase();
-  const hex = randomBytes(6).toString("hex").toUpperCase();
-  return `${prefix}-${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}`;
+export interface CheckoutState {
+  error?: string;
 }
 
 /**
- * Simulated payment gateway. The buyer pays face value + the chosen payment
- * method's convenience fee, and earns that method's cashback rate. Success
- * records a COMPLETED order (voucher codes, cart cleared); failure records a
- * FAILED one (no codes, no cashback, cart kept).
+ * Pay button: creates a PENDING order from the cart and sends the buyer to
+ * the payment gateway's page. Nothing is charged or issued until the
+ * gateway reports back (see /payment/return and the webhook).
  */
-export async function payAction(formData: FormData): Promise<void> {
+export async function startCheckoutAction(
+  _prev: CheckoutState,
+  formData: FormData,
+): Promise<CheckoutState> {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=%2Fcheckout");
 
-  const items = await db.cartItem.findMany({
-    where: { userId: user.id },
-    include: { brand: true },
-  });
-  if (items.length === 0) redirect("/cart");
+  const limit = rateLimit(`checkout:${user.id}`, 10, 10 * 60 * 1000);
+  if (!limit.ok) return { error: tooManyAttempts(limit.retryAfter) };
 
-  const method = getPaymentMethod(String(formData.get("paymentMethod")));
-  if (!method) redirect("/checkout");
-
-  const success = formData.get("outcome") !== "failure";
-
-  let subtotal = 0;
-  let baseCashback = 0;
-  for (const item of items) {
-    const face = item.denomination * item.quantity;
-    subtotal += face;
-    baseCashback += (face * item.brand.cashbackPct) / 100;
+  let redirectUrl: string;
+  try {
+    ({ redirectUrl } = await createOrderFromCart(
+      user,
+      String(formData.get("paymentMethod")),
+    ));
+  } catch (error) {
+    if (error instanceof CheckoutError) return { error: error.message };
+    throw error;
   }
-  const fee = convenienceFee(subtotal, method);
-  const cashback = success ? methodCashback(baseCashback, method) : 0;
-
-  const orderId = `GC-${randomBytes(4).toString("hex").toUpperCase()}`;
-  await db.order.create({
-    data: {
-      id: orderId,
-      userId: user.id,
-      status: success ? "COMPLETED" : "FAILED",
-      subtotal,
-      fee,
-      total: subtotal + fee,
-      cashback,
-      paymentMethod: method.id,
-      paymentRef: `PAY-${randomBytes(6).toString("hex").toUpperCase()}`,
-      items: {
-        create: items.map((item) => ({
-          brandId: item.brandId,
-          brandName: item.brand.name,
-          denomination: item.denomination,
-          quantity: item.quantity,
-          cashbackPct: item.brand.cashbackPct,
-          codes: JSON.stringify(
-            success
-              ? Array.from({ length: item.quantity }, () => voucherCode(item.brand.name))
-              : [],
-          ),
-        })),
-      },
-    },
-  });
-
-  if (success) {
-    await db.cartItem.deleteMany({ where: { userId: user.id } });
-  }
-
   revalidatePath("/", "layout");
-  redirect(`/orders/${orderId}`);
+  redirect(redirectUrl);
+}
+
+/** "Retry payment" on a failed/cancelled order: new attempt, same amount. */
+export async function retryPaymentAction(orderId: string): Promise<void> {
+  const user = await getSessionUser();
+  if (!user)
+    redirect(`/login?next=${encodeURIComponent(`/payment/status/${orderId}`)}`);
+
+  let redirectUrl: string;
+  try {
+    redirectUrl = await retryOrderPayment(user, orderId);
+  } catch (error) {
+    if (error instanceof CheckoutError) {
+      redirect(
+        `/payment/status/${orderId}?error=${encodeURIComponent(error.message)}`,
+      );
+    }
+    throw error;
+  }
+  redirect(redirectUrl);
+}
+
+/** Polled by the payment status page while an order is PENDING. */
+export async function checkPaymentStatusAction(
+  orderId: string,
+): Promise<string | null> {
+  const user = await getSessionUser();
+  if (!user) return null;
+  const order = await db.order.findUnique({ where: { id: orderId } });
+  if (!order || order.userId !== user.id) return null;
+  if (order.status === "PENDING") {
+    await reconcileOrder(orderId);
+    return (
+      (await db.order.findUnique({ where: { id: orderId } }))?.status ?? null
+    );
+  }
+  return order.status;
+}
+
+/**
+ * The mock gateway's own "Pay" handler — plays the gateway's server. Records
+ * the tester's pick (as the gateway would in its DB) and redirects back to
+ * our return URL with a signed result, like Razorpay/PayU do.
+ */
+export async function mockGatewayAction(
+  gatewayPaymentId: string,
+  outcome: MockOutcome,
+): Promise<void> {
+  const payment = await db.payment.findUnique({ where: { gatewayPaymentId } });
+  if (!payment || payment.gateway !== "mock") redirect("/orders");
+  getGatewayById("mock"); // throws if mock payments are disabled here
+
+  const meta = JSON.parse(payment.meta) as MockMeta;
+  if (payment.status !== "CREATED" || meta.outcome) {
+    redirect(`/payment/status/${payment.orderId}`); // link already used
+  }
+
+  const next: MockMeta = {
+    ...meta,
+    outcome,
+    ...(outcome.startsWith("pending")
+      ? { resolveAt: Date.now() + MOCK_PENDING_MS }
+      : {}),
+  };
+  await db.payment.update({
+    where: { id: payment.id },
+    data: { meta: JSON.stringify(next) },
+  });
+  redirect(
+    mockReturnUrl(
+      meta.returnUrl,
+      mockStatus(gatewayPaymentId, payment.amount, next),
+    ),
+  );
 }

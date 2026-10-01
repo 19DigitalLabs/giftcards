@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 import { getSessionUser } from "./auth";
-import { getPaymentMethod, PAYMENT_METHODS, type PaymentMethod } from "./payments";
+import {
+  getPaymentMethod,
+  PAYMENT_METHODS,
+  type PaymentMethod,
+} from "./payments";
 
 /**
  * The buyer's remembered payment method: cookie first (their latest pick,

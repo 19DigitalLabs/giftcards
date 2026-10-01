@@ -20,8 +20,11 @@ export async function addToCartAction(formData: FormData): Promise<void> {
     redirect(`/login?next=${encodeURIComponent(`/brands/${brand.slug}`)}`);
   }
 
-  const validDenomination = parseDenominations(brand.denominations).includes(denomination);
-  const validQuantity = Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_QTY;
+  const validDenomination = parseDenominations(brand.denominations).includes(
+    denomination,
+  );
+  const validQuantity =
+    Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_QTY;
   if (!validDenomination || !validQuantity) redirect(`/brands/${brand.slug}`);
 
   const existing = await db.cartItem.findUnique({

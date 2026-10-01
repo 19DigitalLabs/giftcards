@@ -82,8 +82,8 @@ export default async function HomePage() {
             <span className="font-bold text-primary">
               {maxCashback}% back in Gems 💎
             </span>{" "}
-            on {brands.length} brands you actually use. 1 Gem = ₹1. Full rate
-            on UPI. Instant codes. No cap.
+            on {brands.length} brands you actually use. 1 Gem = ₹1. Full rate on
+            UPI. Instant codes. No cap.
           </p>
           <BrandSearch className="mt-8 max-w-xl" />
         </div>
@@ -145,7 +145,9 @@ export default async function HomePage() {
               <h3 className="mt-3 font-display text-lg font-extrabold">
                 {step.title}
               </h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{step.text}</p>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {step.text}
+              </p>
             </Card>
           ))}
         </div>

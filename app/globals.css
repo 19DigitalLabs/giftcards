@@ -43,8 +43,10 @@
   --color-orange: #ff9d3c;
 
   /* ── Typography ──────────────────────────────────────────────────────── */
-  --font-sans: var(--font-space-grotesk, "Space Grotesk"), system-ui, sans-serif;
-  --font-display: var(--font-bricolage, "Bricolage Grotesque"), var(--font-sans);
+  --font-sans:
+    var(--font-space-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  --font-display:
+    var(--font-bricolage, "Bricolage Grotesque"), var(--font-sans);
   --font-mono: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
 
   /* ── Shape: big, soft, pill-happy ────────────────────────────────────── */
