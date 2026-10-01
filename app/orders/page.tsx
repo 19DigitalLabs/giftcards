@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatDate, formatRupee } from "@platform/utils";
+import { formatDate, formatRupee } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { OrderStatusTag } from "@/components/order-status-tag";

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 
 /** Pill nav item — the active route gets a filled capsule. */
 export function NavLink({ href, label }: { href: string; label: string }) {

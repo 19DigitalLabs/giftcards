@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn, formatRupee } from "@platform/utils";
+import { cn, formatRupee } from "@/lib/utils";
 import { addToCartAction } from "@/lib/actions/cart";
 import { formatGems, MAX_QTY } from "@/lib/giftcards";
 import { SubmitButton } from "@/components/submit-button";

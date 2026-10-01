@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { formatRupee } from "@platform/utils";
+import { formatRupee } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPreferredMethod } from "@/lib/prefs";

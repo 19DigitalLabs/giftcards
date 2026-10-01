@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatRupee } from "@platform/utils";
+import { formatRupee } from "@/lib/utils";
 import { removeItemAction, setQuantityAction } from "@/lib/actions/cart";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";

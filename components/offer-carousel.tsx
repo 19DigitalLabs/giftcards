@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 import { BrandChip } from "@/components/brand-chip";
 import { buttonClasses, Tag } from "@/components/ui";
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 
 /** The gifts19 mark: gradient gift tile + chunky lowercase wordmark. */
 export function Logo({ className }: { className?: string }) {

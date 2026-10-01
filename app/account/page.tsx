@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatDate } from "@platform/utils";
+import { formatDate } from "@/lib/utils";
 import { logoutAction } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";

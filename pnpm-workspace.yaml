@@ -1,0 +1,9 @@
+# pnpm blocks dependency postinstall scripts by default.
+# These trusted packages ship native binaries and are allowed to build.
+allowBuilds:
+  "@tailwindcss/oxide": true
+  esbuild: true
+  sharp: true
+  prisma: true
+  "@prisma/client": true
+  "@prisma/engines": true

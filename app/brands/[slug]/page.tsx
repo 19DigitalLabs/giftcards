@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 import { setPaymentMethodAction, toggleFavoriteAction } from "@/lib/actions/prefs";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";

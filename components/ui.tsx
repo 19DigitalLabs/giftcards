@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 
 /* gifts19's own UI primitives — intentionally NOT the platform design
  * system. Pills, glass surfaces, lime glow. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn, formatRupee } from "@platform/utils";
+import { cn, formatRupee } from "@/lib/utils";
 import { payAction } from "@/lib/actions/checkout";
 import { setPaymentMethodAction } from "@/lib/actions/prefs";
 import { formatGems } from "@/lib/giftcards";

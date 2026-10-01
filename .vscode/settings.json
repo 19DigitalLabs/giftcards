@@ -1,0 +1,6 @@
+{
+  // Use the repo's TypeScript (5.9.x) instead of VS Code's built-in TS 7 —
+  // the toolchain is pinned to 5.9 until typescript-eslint supports TS 7.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

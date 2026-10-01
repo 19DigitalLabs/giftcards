@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 import { brandInitials } from "@/lib/giftcards";
 
 const sizes = {

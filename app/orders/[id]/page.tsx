@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDate, formatRupee } from "@platform/utils";
+import { formatDate, formatRupee } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatGems } from "@/lib/giftcards";

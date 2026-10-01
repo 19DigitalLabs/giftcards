@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { categoryEmoji } from "@/lib/giftcards";
 import { BrandCard } from "@/components/brand-card";

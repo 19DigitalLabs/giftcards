@@ -1,4 +1,7 @@
-import type { NavItem } from "@platform/types";
+export interface NavItem {
+  label: string;
+  href: string;
+}
 
 /** Site-wide identity and navigation — the one place to rename or re-nav the app. */
 export const siteConfig = {

@@ -1,4 +1,4 @@
-import { cn } from "@platform/utils";
+import { cn } from "@/lib/utils";
 
 /** GET form into /brands — one glowing pill, works without JavaScript. */
 export function BrandSearch({
