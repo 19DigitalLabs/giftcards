@@ -39,6 +39,8 @@ export function AddToCartForm({ products }: { products: ProductOption[] }) {
         {products.map((p) => (
           <button
             key={p.id}
+            data-product-id={p.id}
+            data-face-paise={p.faceValuePaise}
             type="button"
             onClick={() => setSelectedId(p.id)}
             aria-pressed={p.id === selected.id}

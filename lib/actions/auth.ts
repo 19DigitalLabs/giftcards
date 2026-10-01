@@ -43,16 +43,22 @@ function safeNext(value: FormDataEntryValue | null): string {
     : "/";
 }
 
+async function ipKey(prefix: string): Promise<string | null> {
+  const ip = await clientIp();
+  return ip ? `${prefix}:${ip}` : null;
+}
+
 function failure(error: unknown): AuthState {
   if (!(error instanceof AppError)) log.error("auth.unexpected", { error });
   return { error: publicMessage(error) };
 }
 
 async function limited(
-  key: string,
+  key: string | null,
   limit: number,
   windowMs: number,
 ): Promise<AuthState | null> {
+  if (!key) return null; // no trustworthy client IP: rely on per-account limits
   const result = await rateLimit(key, limit, windowMs);
   return result.ok ? null : { error: tooManyAttempts(result.retryAfter) };
 }
@@ -61,7 +67,7 @@ export async function signupAction(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const blocked = await limited(`signup:${await clientIp()}`, 10, 60 * MINUTE);
+  const blocked = await limited(await ipKey("signup"), 10, 60 * MINUTE);
   if (blocked) return blocked;
   try {
     const user = await registerUser({
@@ -86,7 +92,7 @@ export async function loginAction(
     .trim()
     .toLowerCase();
   const blocked =
-    (await limited(`login-ip:${await clientIp()}`, 30, 15 * MINUTE)) ??
+    (await limited(await ipKey("login-ip"), 30, 15 * MINUTE)) ??
     (await limited(`login-email:${email}`, 10, 15 * MINUTE));
   if (blocked) return blocked;
   try {
@@ -122,7 +128,7 @@ export async function requestPasswordResetAction(
     .trim()
     .toLowerCase();
   const blocked =
-    (await limited(`reset-ip:${await clientIp()}`, 10, 15 * MINUTE)) ??
+    (await limited(await ipKey("reset-ip"), 10, 15 * MINUTE)) ??
     (await limited(`reset-email:${email}`, 3, 15 * MINUTE));
   if (blocked) return blocked;
   try {
@@ -140,11 +146,7 @@ export async function resetPasswordAction(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const blocked = await limited(
-    `reset-use:${await clientIp()}`,
-    10,
-    15 * MINUTE,
-  );
+  const blocked = await limited(await ipKey("reset-use"), 10, 15 * MINUTE);
   if (blocked) return blocked;
   if (formData.get("password") !== formData.get("confirm"))
     return { error: "Passwords don't match." };
