@@ -1,26 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDate, formatRupee } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatGems } from "@/lib/giftcards";
-import { decryptCodes, reconcileOrder } from "@/lib/orders";
-import { getPaymentMethod } from "@/lib/payments";
+import { formatINR } from "@/lib/money";
+import { IN_PROGRESS, ORDER_STATUS_COPY } from "@/lib/order-display";
+import { formatDate } from "@/lib/utils";
+import { maskCode } from "@/lib/vouchers";
 import { BrandChip } from "@/components/brand-chip";
+import { OrderProgressPoller } from "@/components/order-progress-poller";
 import { OrderStatusTag } from "@/components/order-status-tag";
-import { buttonClasses, Card, Notice, Section, Tag } from "@/components/ui";
-import { VoucherCode } from "@/components/voucher-code";
+import { buttonClasses, Card, Notice, Section } from "@/components/ui";
+import { VoucherReveal } from "@/components/voucher-reveal";
 
 export const metadata: Metadata = { title: "Order details" };
-
-const PAYMENT_LABEL: Record<string, string> = {
-  CREATED: "⌛ not completed",
-  PENDING: "⏳ pending",
-  SUCCESS: "✅ success",
-  FAILED: "❌ failed",
-  CANCELLED: "↩️ cancelled",
-};
 
 export default async function OrderPage({
   params,
@@ -29,185 +22,154 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
   const user = await requireUser(`/orders/${id}`);
-  const owned = await db.order.findUnique({
-    where: { id },
-    select: { userId: true, status: true },
-  });
-  if (!owned || owned.userId !== user.id) notFound();
-  if (owned.status === "PENDING") await reconcileOrder(id);
-  const order = await db.order.findUniqueOrThrow({
+  const order = await db.order.findUnique({
     where: { id },
     include: {
-      items: { include: { brand: true } },
-      payments: { orderBy: { createdAt: "desc" } },
+      items: {
+        include: {
+          product: { include: { brand: true } },
+          // Only safe columns — never the encrypted code/PIN.
+          vouchers: {
+            where: { status: "ACTIVE" },
+            select: {
+              id: true,
+              codeLast4: true,
+              isTest: true,
+              expiresAt: true,
+              unitIndex: true,
+            },
+            orderBy: { unitIndex: "asc" },
+          },
+        },
+      },
     },
   });
+  if (!order || order.userId !== user.id) notFound();
 
-  const method = getPaymentMethod(order.paymentMethod);
+  const copy = ORDER_STATUS_COPY[order.status];
+  const showCodes =
+    order.status === "FULFILLED" || order.status === "MANUAL_REVIEW";
 
   return (
     <Section>
       <div className="flex flex-wrap items-center gap-4">
-        <h1 className="font-display text-4xl font-extrabold tracking-tight">
-          {order.id}
+        <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+          Order {order.id}
         </h1>
         <OrderStatusTag status={order.status} />
-        {order.status === "COMPLETED" && order.cashback > 0 && (
-          <Tag variant="lime">💎 +{formatGems(order.cashback)} earned</Tag>
-        )}
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Placed {formatDate(order.createdAt.toISOString())} ·{" "}
-        {order.status === "COMPLETED" ? "Paid via" : "Paying via"}{" "}
-        {method ? `${method.emoji} ${method.label}` : order.paymentMethod}
-        {order.paymentRef && (
-          <>
-            {" "}
-            · Ref <span className="font-mono">{order.paymentRef}</span>
-          </>
-        )}
+      <p className="mt-2 text-sm text-muted-foreground">
+        Placed {formatDate(order.createdAt.toISOString(), "en-IN")}
       </p>
 
-      {order.status !== "COMPLETED" && (
+      {order.status !== "FULFILLED" && (
         <Notice
-          variant={order.status === "PENDING" ? "info" : "error"}
+          variant={copy.tone === "warning" ? "error" : "info"}
           className="mt-6 max-w-2xl"
         >
-          {order.status === "PENDING"
-            ? "Payment not confirmed yet — voucher codes appear here as soon as it is."
-            : `${order.failureReason ?? "Payment didn't go through."} No codes were issued.`}{" "}
-          <Link href={`/payment/status/${order.id}`} className="underline">
-            {order.status === "PENDING"
-              ? "Check payment status"
-              : "Retry payment"}
-          </Link>
+          {copy.body}
         </Notice>
+      )}
+      {IN_PROGRESS.includes(order.status) && (
+        <div className="mt-4 max-w-2xl">
+          <OrderProgressPoller orderId={order.id} status={order.status} />
+        </div>
+      )}
+      {(order.status === "PAYMENT_FAILED" || order.status === "CANCELLED") && (
+        <Link
+          href={`/payment/status/${order.id}`}
+          className={`mt-4 inline-flex ${buttonClasses({ variant: "outline" })}`}
+        >
+          Try payment again
+        </Link>
       )}
 
       <ul className="mt-8 space-y-4">
-        {order.items.map((item) => {
-          const codes = decryptCodes(item.codes);
-          return (
-            <li
-              key={item.id}
-              className="rounded-3xl border border-border bg-card p-5"
-            >
-              <div className="flex flex-wrap items-center gap-4">
-                <BrandChip
-                  name={item.brandName}
-                  color={item.brand.color}
-                  slug={item.brand.slug}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="font-display font-extrabold">
-                    {item.brandName} · {formatRupee(item.denomination)} ×{" "}
-                    {item.quantity}
-                  </p>
-                  <p className="text-xs text-primary">
-                    💎 {item.cashbackPct}% base Gems rate
-                  </p>
-                </div>
+        {order.items.map((item) => (
+          <li
+            key={item.id}
+            className="rounded-3xl border border-border bg-card p-5"
+          >
+            <div className="flex flex-wrap items-center gap-4">
+              <BrandChip
+                name={item.brandName}
+                color={item.product.brand.color}
+                logoPath={item.product.brand.logoPath}
+              />
+              <div className="min-w-0 flex-1">
                 <p className="font-display font-extrabold">
-                  {formatRupee(item.denomination * item.quantity)}
+                  {item.brandName} gift card · {formatINR(item.faceValuePaise)}{" "}
+                  × {item.quantity}
                 </p>
+                <Link
+                  href={`/brands/${item.product.brand.slug}`}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  How to redeem & terms
+                </Link>
               </div>
-              {codes.length > 0 && (
-                <div className="mt-5 border-t border-border pt-4">
-                  <p className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
-                    Voucher codes 🎟️
-                  </p>
-                  <ul className="mt-3 flex flex-wrap gap-2">
-                    {codes.map((code) => (
-                      <li key={code}>
-                        <VoucherCode code={code} />
-                      </li>
-                    ))}
-                  </ul>
-                  {item.expiresAt && (
-                    <p
-                      className={`mt-3 text-xs font-bold ${item.expiresAt < new Date() ? "text-pink" : "text-muted-foreground"}`}
-                    >
-                      {item.expiresAt < new Date() ? "Expired" : "Valid till"}{" "}
-                      {formatDate(item.expiresAt.toISOString())}
-                    </p>
-                  )}
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    How to redeem + full T&Cs are on the{" "}
-                    <Link
-                      href={`/brands/${item.brand.slug}`}
-                      className="font-bold text-primary hover:underline"
-                    >
-                      {item.brandName} page
-                    </Link>
-                    .
-                  </p>
-                </div>
-              )}
-            </li>
-          );
-        })}
+              <p className="font-display font-extrabold">
+                {formatINR(item.sellingPricePaise * item.quantity)}
+              </p>
+            </div>
+            {showCodes && item.vouchers.length > 0 && (
+              <div className="mt-5 space-y-3 border-t border-border pt-4">
+                <p className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
+                  Your gift card codes
+                </p>
+                {item.vouchers.map((v) => (
+                  <div key={v.id}>
+                    <VoucherReveal
+                      voucherId={v.id}
+                      masked={maskCode(v.codeLast4)}
+                      isTest={v.isTest}
+                    />
+                    {v.expiresAt && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        Valid till{" "}
+                        {formatDate(v.expiresAt.toISOString(), "en-IN")}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </li>
+        ))}
       </ul>
 
       <Card className="mt-8 max-w-sm">
         <dl className="space-y-2.5 text-sm">
           <div className="flex justify-between">
-            <dt className="text-muted-foreground">Face value</dt>
-            <dd>{formatRupee(order.subtotal)}</dd>
+            <dt className="text-muted-foreground">Gift card value</dt>
+            <dd>{formatINR(order.faceValuePaise)}</dd>
+          </div>
+          <div className="flex justify-between text-primary">
+            <dt>Discount</dt>
+            <dd>−{formatINR(order.discountPaise)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-muted-foreground">Convenience fee</dt>
-            <dd className={order.fee > 0 ? "text-pink" : ""}>
-              {order.fee > 0 ? `+ ${formatRupee(order.fee)}` : "Free"}
-            </dd>
+            <dt className="text-muted-foreground">Payment fee</dt>
+            <dd>{formatINR(order.feePaise)}</dd>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-base font-extrabold">
-            <dt>{order.status === "COMPLETED" ? "Paid" : "Amount"}</dt>
-            <dd>{formatRupee(order.total)}</dd>
+            <dt>{order.status === "REFUNDED" ? "Refunded" : "Total"}</dt>
+            <dd>{formatINR(order.totalPaise)}</dd>
           </div>
-          {order.status === "COMPLETED" && (
-            <div className="flex justify-between text-primary">
-              <dt className="font-bold">Gems earned 💎</dt>
-              <dd className="font-bold">{formatGems(order.cashback)}</dd>
-            </div>
-          )}
         </dl>
       </Card>
 
-      {order.payments.length > 0 && (
-        <Card className="mt-4 max-w-sm">
-          <h2 className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
-            Payment attempts
-          </h2>
-          <ul className="mt-3 space-y-2.5 text-sm">
-            {order.payments.map((p) => (
-              <li key={p.id} className="flex items-start justify-between gap-3">
-                <span className="min-w-0">
-                  <span className="block font-mono text-xs break-all">
-                    {p.gatewayPaymentId}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {p.createdAt.toLocaleString("en-IN", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                    {p.failureReason && ` · ${p.failureReason}`}
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs font-bold">
-                  {PAYMENT_LABEL[p.status] ?? p.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      <Link
-        href="/orders"
-        className={`mt-8 inline-flex ${buttonClasses({ variant: "outline" })}`}
-      >
-        ← All orders
-      </Link>
+      <div className="mt-8 flex flex-wrap gap-3">
+        <Link href="/orders" className={buttonClasses({ variant: "outline" })}>
+          ← All orders
+        </Link>
+        <Link
+          href={`/support?order=${order.id}`}
+          className={buttonClasses({ variant: "ghost" })}
+        >
+          Get help with this order
+        </Link>
+      </div>
     </Section>
   );
 }

@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { randomToken, sha256 } from "./crypto";
 import { db } from "./db";
@@ -65,6 +65,7 @@ export const getSessionUser = cache(async () => {
     include: { user: true },
   });
   if (!session || session.expiresAt < new Date()) return null;
+  if (session.user.status === "BLOCKED") return null;
   return session.user;
 });
 
@@ -72,5 +73,19 @@ export const getSessionUser = cache(async () => {
 export async function requireUser(next: string) {
   const user = await getSessionUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
+  return user;
+}
+
+/** Admin-only pages/actions. Non-admins get a 404 (don't advertise /admin). */
+export async function requireAdmin(next = "/admin") {
+  const user = await requireUser(next);
+  if (user.role !== "ADMIN") notFound();
+  return user;
+}
+
+/** Ops console read access (ADMIN or SUPPORT). */
+export async function requireStaff(next = "/admin") {
+  const user = await requireUser(next);
+  if (user.role !== "ADMIN" && user.role !== "SUPPORT") notFound();
   return user;
 }

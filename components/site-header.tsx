@@ -16,25 +16,32 @@ export async function SiteHeader() {
         })
       )._sum.quantity ?? 0)
     : 0;
+  const isStaff = user?.role === "ADMIN" || user?.role === "SUPPORT";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/75 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <Container className="flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-7">
           <Logo />
-          <nav aria-label="Main" className="hidden sm:block">
+          <nav aria-label="Main" className="hidden md:block">
             <ul className="flex items-center gap-1 rounded-full border border-border bg-foreground/5 p-1">
               {siteConfig.nav.map((item) => (
                 <li key={item.href}>
                   <NavLink href={item.href} label={item.label} />
                 </li>
               ))}
+              {isStaff && (
+                <li>
+                  <NavLink href="/admin" label="Admin" />
+                </li>
+              )}
             </ul>
           </nav>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/cart"
+            aria-label={`Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
             className="flex items-center gap-1.5 rounded-full border border-border bg-foreground/5 px-4 py-2 text-sm font-bold transition-colors hover:border-primary/50 hover:text-primary"
           >
             🛒
@@ -45,9 +52,9 @@ export async function SiteHeader() {
           {user ? (
             <Link
               href="/account"
-              className="rounded-full px-3 py-2 text-sm font-bold transition-colors hover:text-primary"
+              className="hidden rounded-full px-3 py-2 text-sm font-bold transition-colors hover:text-primary sm:block"
             >
-              hey, {(user.name.split(" ")[0] ?? user.name).toLowerCase()} ✌️
+              {user.name.split(" ")[0]}
             </Link>
           ) : (
             <>
@@ -57,11 +64,53 @@ export async function SiteHeader() {
               >
                 Log in
               </Link>
-              <Link href="/signup" className={buttonClasses({ size: "sm" })}>
-                Join free
+              <Link
+                href="/signup"
+                className={buttonClasses({
+                  size: "sm",
+                  className: "hidden sm:inline-flex",
+                })}
+              >
+                Sign up
               </Link>
             </>
           )}
+          {/* Mobile menu: <details> works without JavaScript. */}
+          <details className="group relative md:hidden">
+            <summary
+              aria-label="Menu"
+              className="flex size-10 cursor-pointer list-none items-center justify-center rounded-full border border-border bg-foreground/5 text-lg [&::-webkit-details-marker]:hidden"
+            >
+              <span className="group-open:hidden">☰</span>
+              <span className="hidden group-open:inline">✕</span>
+            </summary>
+            <nav
+              aria-label="Mobile"
+              className="absolute top-12 right-0 w-56 rounded-2xl border border-border bg-card p-2 shadow-violet"
+            >
+              <ul className="space-y-1 text-sm font-bold">
+                {[
+                  ...siteConfig.nav,
+                  ...(user
+                    ? [{ label: "Account", href: "/account" }]
+                    : [
+                        { label: "Log in", href: "/login" },
+                        { label: "Sign up", href: "/signup" },
+                      ]),
+                  ...(isStaff ? [{ label: "Admin", href: "/admin" }] : []),
+                ].map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="block rounded-xl px-3 py-2.5 hover:bg-muted"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </details>
         </div>
       </Container>
     </header>

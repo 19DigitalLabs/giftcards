@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Space_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
-import { getBaseUrl } from "@/lib/utils";
+import { isDemoMode, siteUrl } from "@/lib/config";
+import { siteConfig } from "@/lib/site";
+import { DemoBanner } from "@/components/demo-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
-/* Two faces: Bricolage for loud display type, Space Grotesk for everything else. */
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-bricolage",
@@ -17,26 +17,28 @@ const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(getBaseUrl()),
-  title: {
-    default: `${siteConfig.name} — ${siteConfig.tagline}`,
-    template: `%s | ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  openGraph: {
-    type: "website",
-    siteName: siteConfig.name,
-  },
-};
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: new URL(siteUrl()),
+    title: {
+      default: `${siteConfig.name} — ${siteConfig.tagline}`,
+      template: `%s | ${siteConfig.name}`,
+    },
+    description: siteConfig.description,
+    openGraph: { type: "website", siteName: siteConfig.name },
+    // A demo/staging deployment must never be indexed.
+    robots: isDemoMode() ? { index: false, follow: false } : undefined,
+  };
+}
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
-      lang="en"
+      lang="en-IN"
       className={`${bricolage.variable} ${spaceGrotesk.variable}`}
     >
       <body className="flex min-h-svh flex-col">
+        <DemoBanner />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

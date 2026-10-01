@@ -6,11 +6,13 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
-import { voucherKey } from "./env";
+import { voucherKey } from "./config";
 
 /* AES-256-GCM, stored as "v1.<iv>.<tag>.<ciphertext>" (base64url). The
  * version prefix leaves room to rotate keys without a big-bang migration. */
-const VERSION = "v1";
+/** Current key version, stored next to each ciphertext (Voucher.keyVersion). */
+export const KEY_VERSION = "v1";
+const VERSION = KEY_VERSION;
 
 export function encrypt(plaintext: string): string {
   const iv = randomBytes(12);

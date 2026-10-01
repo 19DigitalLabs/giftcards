@@ -41,7 +41,8 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       // Pages showing voucher codes or tokens must never be cached by proxies.
       {
-        source: "/(orders|payment|reset-password|account)/:path*",
+        source:
+          "/(orders|payment|reset-password|verify-email|account|admin|demo|pay|checkout|cart)/:path*",
         headers: [{ key: "Cache-Control", value: "private, no-store" }],
       },
     ];

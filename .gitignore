@@ -164,3 +164,6 @@ Desktop.ini
 # SQLite (local dev databases)
 *.db
 *.db-journal
+
+# Local Postgres data (pnpm db:start)
+.local/

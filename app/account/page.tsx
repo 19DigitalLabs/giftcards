@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
 import { logoutAction, logoutEverywhereAction } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
+import { summarize } from "@/lib/catalogue/queries";
+import { isDemoMode } from "@/lib/config";
 import { db } from "@/lib/db";
-import { formatGems } from "@/lib/giftcards";
-import { getPreferredMethod } from "@/lib/prefs";
+import { formatDate } from "@/lib/utils";
 import { BrandCard } from "@/components/brand-card";
 import { ChangePasswordForm } from "@/components/password-forms";
+import { ResendVerificationForm } from "@/components/resend-verification-form";
 import { Button, Card, Notice, Section } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Account" };
@@ -22,20 +23,14 @@ export default async function AccountPage({
 }) {
   const user = await requireUser("/account");
   const { password } = await searchParams;
-  const [orderCount, wallet, favorites, method] = await Promise.all([
+  const [orderCount, favorites] = await Promise.all([
     db.order.count({ where: { userId: user.id } }),
-    db.order.aggregate({
-      _sum: { cashback: true },
-      where: { userId: user.id, status: "COMPLETED" },
-    }),
     db.favorite.findMany({
-      where: { userId: user.id },
-      include: { brand: true },
+      where: { userId: user.id, brand: { status: { not: "DISABLED" } } },
+      include: { brand: { include: { products: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    getPreferredMethod(),
   ]);
-  const walletBalance = wallet._sum.cashback ?? 0;
 
   return (
     <Section containerClassName="max-w-2xl">
@@ -44,22 +39,11 @@ export default async function AccountPage({
       </h1>
       {password === "reset" && (
         <Notice variant="success" className="mt-6">
-          Password reset ✓ — you&apos;ve been signed out of every other device.
+          Password reset — you&apos;ve been signed out of every other device.
         </Notice>
       )}
 
-      <div className="mt-7 rounded-3xl bg-gradient-to-br from-accent/30 via-pink/20 to-orange/15 p-6">
-        <p className={label}>Gems wallet 💎</p>
-        <p className="mt-1 font-display text-4xl font-extrabold text-primary">
-          {formatGems(walletBalance)}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          1 Gem = ₹1, earned across your completed orders. Withdrawals coming
-          soon.
-        </p>
-      </div>
-
-      <Card className="mt-4">
+      <Card className="mt-7">
         <dl className="space-y-4 text-sm">
           <div>
             <dt className={label}>Name</dt>
@@ -69,21 +53,23 @@ export default async function AccountPage({
           </div>
           <div>
             <dt className={label}>Email</dt>
-            <dd className="mt-0.5">{user.email}</dd>
+            <dd className="mt-0.5">
+              {user.email}{" "}
+              {user.emailVerifiedAt ? (
+                <span className="ml-2 text-xs font-bold text-primary">
+                  ✓ verified
+                </span>
+              ) : (
+                <span className="ml-2 text-xs font-bold text-orange">
+                  not verified
+                </span>
+              )}
+            </dd>
           </div>
           <div>
             <dt className={label}>Member since</dt>
             <dd className="mt-0.5">
-              {formatDate(user.createdAt.toISOString())}
-            </dd>
-          </div>
-          <div>
-            <dt className={label}>Preferred payment</dt>
-            <dd className="mt-0.5 font-bold">
-              {method.emoji} {method.label}
-              <span className="ml-2 font-normal text-muted-foreground">
-                — change it on any gift card page or at checkout
-              </span>
+              {formatDate(user.createdAt.toISOString(), "en-IN")}
             </dd>
           </div>
           <div>
@@ -99,10 +85,24 @@ export default async function AccountPage({
             </dd>
           </div>
         </dl>
+        {!user.emailVerifiedAt && (
+          <div className="mt-6 space-y-3">
+            <Notice variant="info">Verify your email to buy gift cards.</Notice>
+            <ResendVerificationForm />
+            {isDemoMode() && (
+              <Link
+                href="/demo/emails"
+                className="block text-center text-xs font-bold text-primary hover:underline"
+              >
+                Open the demo inbox
+              </Link>
+            )}
+          </div>
+        )}
         <div className="mt-7 grid gap-3 sm:grid-cols-2">
           <form action={logoutAction}>
             <Button variant="outline" className="w-full">
-              Log out 👋
+              Log out
             </Button>
           </form>
           <form action={logoutEverywhereAction}>
@@ -114,11 +114,9 @@ export default async function AccountPage({
       </Card>
 
       <Card className="mt-4">
-        <h2 className="font-display text-lg font-extrabold">
-          Change password 🔐
-        </h2>
+        <h2 className="font-display text-lg font-extrabold">Change password</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Other devices get signed out when you change it.
+          Other devices are signed out when you change it.
         </p>
         <div className="mt-5">
           <ChangePasswordForm />
@@ -126,23 +124,23 @@ export default async function AccountPage({
       </Card>
 
       <h2 className="mt-10 font-display text-2xl font-extrabold tracking-tight">
-        Your favourites {favorites.length > 0 && `(${favorites.length})`} 💖
+        Saved brands
       </h2>
       {favorites.length === 0 ? (
         <p className="mt-4 rounded-3xl border border-border bg-card p-6 text-sm text-muted-foreground">
-          Nothing saved yet — tap ♡ Save on any{" "}
+          Tap ♡ Save on any{" "}
           <Link
             href="/brands"
             className="font-bold text-primary hover:underline"
           >
-            gift card page
+            brand page
           </Link>{" "}
-          and it&apos;ll show up here.
+          to keep it here.
         </p>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {favorites.map((f) => (
-            <BrandCard key={f.id} brand={f.brand} />
+            <BrandCard key={f.id} summary={summarize(f.brand)} />
           ))}
         </div>
       )}

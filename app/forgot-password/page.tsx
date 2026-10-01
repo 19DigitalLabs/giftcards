@@ -9,11 +9,11 @@ export default function ForgotPasswordPage() {
   return (
     <Section containerClassName="max-w-md">
       <h1 className="font-display text-4xl font-extrabold tracking-tight">
-        Forgot it? 🔑
+        Reset your password
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Happens to the best of us. Enter your email and we&apos;ll send a link
-        to set a new password.
+        Enter your account email and we&apos;ll send you a link to set a new
+        password.
       </p>
       <Card className="mt-7">
         <ForgotPasswordForm />

@@ -13,26 +13,26 @@ const sizes = {
 const pads = { sm: "p-1", md: "p-2", lg: "p-3" } as const;
 
 /**
- * Circular brand logo (from /public/logos/{slug}.png) on a white disc so
+ * Circular brand logo (Brand.logoPath, under /public) on a white disc so
  * dark logos stay visible on the dark theme. Falls back to colored initials
  * if the image is missing or fails to load.
  */
 export function BrandChip({
   name,
   color,
-  slug,
+  logoPath,
   size = "md",
   className,
 }: {
   name: string;
   color: string;
-  slug?: string;
+  logoPath?: string | null;
   size?: keyof typeof sizes;
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
-  if (!slug || failed) {
+  if (!logoPath || failed) {
     return (
       <div
         aria-hidden
@@ -59,7 +59,7 @@ export function BrandChip({
       style={{ boxShadow: `0 8px 24px ${color}40` }}
     >
       <img
-        src={`/logos/${slug}.png`}
+        src={logoPath}
         alt={`${name} logo`}
         loading="lazy"
         className="size-full rounded-full object-contain"

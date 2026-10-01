@@ -3,16 +3,24 @@ export interface NavItem {
   href: string;
 }
 
-/** Site-wide identity and navigation — the one place to rename or re-nav the app. */
+/** Site-wide identity and navigation. */
 export const siteConfig = {
-  name: "gifts19",
-  tagline: "gift cards that hit different",
+  name: "Gifts19",
+  tagline: "Digital gift cards from India's favourite brands",
   description:
-    "Buy gift cards for India's top brands — Amazon Pay, Myntra, Swiggy, MakeMyTrip and more — at up to 10% off, delivered instantly.",
-  organization: "19 Digital Labs",
+    "Buy digital gift cards for popular Indian brands — shopping, food, travel and entertainment — delivered to your account.",
   nav: [
     { label: "Home", href: "/" },
     { label: "Brands", href: "/brands" },
     { label: "Orders", href: "/orders" },
+    { label: "Support", href: "/support" },
+  ] satisfies NavItem[],
+  legal: [
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+    { label: "Support", href: "/support" },
+    { label: "Terms", href: "/terms" },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Refund policy", href: "/refund-policy" },
   ] satisfies NavItem[],
 };

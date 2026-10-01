@@ -30,7 +30,7 @@ export function AuthForm({
             required
             maxLength={80}
             autoComplete="name"
-            placeholder="What do we call you?"
+            placeholder="Your name"
             className={`mt-1.5 ${inputClasses}`}
           />
         </label>
@@ -43,7 +43,7 @@ export function AuthForm({
           required
           maxLength={254}
           autoComplete="email"
-          placeholder="you@wherever.in"
+          placeholder="you@example.com"
           className={`mt-1.5 ${inputClasses}`}
         />
       </label>
@@ -66,7 +66,7 @@ export function AuthForm({
           minLength={mode === "signup" ? 8 : 1}
           maxLength={128}
           autoComplete={mode === "signup" ? "new-password" : "current-password"}
-          placeholder={mode === "signup" ? "Make it strong 💪" : "••••••••"}
+          placeholder="••••••••"
           className={`mt-1.5 ${inputClasses}`}
         />
         {mode === "signup" && (
@@ -79,7 +79,7 @@ export function AuthForm({
       {state.error && <Notice variant="error">{state.error}</Notice>}
 
       <SubmitButton size="lg" className="w-full">
-        {mode === "login" ? "Log in →" : "Create account ✨"}
+        {mode === "login" ? "Log in" : "Create account"}
       </SubmitButton>
 
       <p className="text-sm text-muted-foreground">

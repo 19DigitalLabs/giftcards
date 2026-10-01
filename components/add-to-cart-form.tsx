@@ -1,62 +1,55 @@
 "use client";
 
 import { useState } from "react";
-import { cn, formatRupee } from "@/lib/utils";
 import { addToCartAction } from "@/lib/actions/cart";
-import { formatGems, MAX_QTY } from "@/lib/giftcards";
+import { MAX_QTY } from "@/lib/giftcards";
+import { formatINR } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { SubmitButton } from "@/components/submit-button";
 
-interface MethodView {
-  label: string;
-  emoji: string;
-  feePct: number;
-  cashbackFactor: number;
+export interface ProductOption {
+  id: string;
+  faceValuePaise: number;
+  sellingPricePaise: number;
 }
 
-/** Denomination + quantity picker that posts to the add-to-cart action. */
-export function AddToCartForm({
-  brandId,
-  denominations,
-  cashbackPct,
-  method,
-}: {
-  brandId: string;
-  denominations: number[];
-  cashbackPct: number;
-  /** The buyer's selected payment method — set in the picker alongside. */
-  method: MethodView;
-}) {
-  const [denomination, setDenomination] = useState(denominations[0] ?? 0);
+/**
+ * Denomination + quantity picker. Prices shown here are for display only —
+ * the server re-reads them at checkout.
+ */
+export function AddToCartForm({ products }: { products: ProductOption[] }) {
+  const [selectedId, setSelectedId] = useState(products[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
+  const selected = products.find((p) => p.id === selectedId) ?? products[0];
+  if (!selected) return null;
 
-  const total = denomination * quantity;
-  const gems = Math.round((total * cashbackPct * method.cashbackFactor) / 100);
-  const fee = Math.round((total * method.feePct) / 100);
+  const value = selected.faceValuePaise * quantity;
+  const pay = selected.sellingPricePaise * quantity;
+  const save = value - pay;
 
   return (
     <form action={addToCartAction}>
-      <input type="hidden" name="brandId" value={brandId} />
-      <input type="hidden" name="denomination" value={denomination} />
+      <input type="hidden" name="productId" value={selected.id} />
       <input type="hidden" name="quantity" value={quantity} />
 
       <p className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase">
-        Card value
+        Gift card value
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {denominations.map((value) => (
+        {products.map((p) => (
           <button
-            key={value}
+            key={p.id}
             type="button"
-            onClick={() => setDenomination(value)}
-            aria-pressed={value === denomination}
+            onClick={() => setSelectedId(p.id)}
+            aria-pressed={p.id === selected.id}
             className={cn(
               "rounded-full border px-4 py-2 text-sm font-bold transition-all",
-              value === denomination
+              p.id === selected.id
                 ? "border-primary bg-primary text-primary-foreground shadow-glow"
                 : "border-border hover:border-primary/60 hover:text-primary",
             )}
           >
-            {formatRupee(value)}
+            {formatINR(p.faceValuePaise)}
           </button>
         ))}
       </div>
@@ -87,33 +80,25 @@ export function AddToCartForm({
         <span className="text-xs text-muted-foreground">max {MAX_QTY}</span>
       </div>
 
-      <div className="mt-6 space-y-1.5 rounded-2xl bg-muted p-4 text-sm">
+      <dl className="mt-6 space-y-1.5 rounded-2xl bg-muted p-4 text-sm">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">You pay (face value)</span>
-          <span className="font-display text-xl font-extrabold">
-            {formatRupee(total)}
-          </span>
+          <dt className="text-muted-foreground">Gift card value</dt>
+          <dd>{formatINR(value)}</dd>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">
-            {method.emoji} {method.label} fee
-          </span>
-          <span className={fee > 0 ? "font-bold text-pink" : "font-bold"}>
-            {fee > 0 ? `+ ${formatRupee(fee)}` : "Free"}
-          </span>
+        {save > 0 && (
+          <div className="flex justify-between text-primary">
+            <dt className="font-bold">You save</dt>
+            <dd className="font-bold">{formatINR(save)}</dd>
+          </div>
+        )}
+        <div className="flex justify-between border-t border-border pt-2 text-base font-extrabold">
+          <dt>You pay</dt>
+          <dd>{formatINR(pay)}</dd>
         </div>
-        <div className="flex justify-between text-primary">
-          <span className="font-bold">Earn 💎</span>
-          <span className="font-bold">{formatGems(gems)}</span>
-        </div>
-        <p className="pt-1 text-xs text-muted-foreground">
-          1 Gem = ₹1. Numbers follow your payment pick — change it in the list
-          alongside.
-        </p>
-      </div>
+      </dl>
 
       <SubmitButton size="lg" className="mt-5 w-full" pendingLabel="Adding…">
-        Add to cart 🛒
+        Add to cart
       </SubmitButton>
     </form>
   );

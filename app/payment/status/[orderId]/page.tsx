@@ -1,44 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatRupee } from "@/lib/utils";
 import { retryPaymentAction } from "@/lib/actions/checkout";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatGems } from "@/lib/giftcards";
-import { reconcileOrder } from "@/lib/orders";
-import { getPaymentMethod } from "@/lib/payments";
-import { PaymentStatusPoller } from "@/components/payment-status-poller";
+import { formatINR } from "@/lib/money";
+import { IN_PROGRESS, ORDER_STATUS_COPY } from "@/lib/order-display";
+import { OrderProgressPoller } from "@/components/order-progress-poller";
 import { SubmitButton } from "@/components/submit-button";
 import { buttonClasses, Card, Notice, Section } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Payment status" };
+export const metadata: Metadata = { title: "Order status" };
 
-const VIEW = {
-  COMPLETED: {
-    emoji: "🎉",
-    title: "Payment successful",
-    body: "Your gift cards are ready — voucher codes are in your order.",
-  },
-  PENDING: {
-    emoji: "⏳",
-    title: "Payment pending",
-    body: "We're waiting for your bank to confirm. This usually takes under a minute. You can leave this page — the order updates on its own and your codes will appear in Orders.",
-  },
-  FAILED: {
-    emoji: "😕",
-    title: "Payment failed",
-    body: "No codes were issued. If money left your account, the bank refunds it automatically within 5–7 working days. Your cart is untouched.",
-  },
-  CANCELLED: {
-    emoji: "↩️",
-    title: "Payment cancelled",
-    body: "You backed out before paying — nothing was charged. Your cart is untouched.",
-  },
+const ICON = {
+  progress: "⏳",
+  success: "🎉",
+  warning: "⚠️",
+  neutral: "↩️",
 } as const;
 
-/** Where the buyer lands after the gateway: success, pending or failure. */
-export default async function PaymentStatusPage({
+/** Where the buyer lands after the payment page. */
+export default async function OrderStatusPage({
   params,
   searchParams,
 }: {
@@ -48,49 +30,35 @@ export default async function PaymentStatusPage({
   const { orderId } = await params;
   const { error } = await searchParams;
   const user = await requireUser(`/payment/status/${orderId}`);
-
-  let order = await db.order.findUnique({ where: { id: orderId } });
-  if (!order || order.userId !== user.id) notFound();
-  if (order.status === "PENDING") {
-    await reconcileOrder(order.id);
-    order = (await db.order.findUnique({ where: { id: orderId } }))!;
-  }
-
-  const latest = await db.payment.findFirst({
-    where: { orderId },
-    orderBy: { createdAt: "desc" },
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: { payments: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
-  const status = (
-    order.status in VIEW ? order.status : "PENDING"
-  ) as keyof typeof VIEW;
-  const view = VIEW[status];
-  const method = getPaymentMethod(order.paymentMethod);
-  // Pending because the buyer never finished on the gateway page (vs. bank pending).
+  if (!order || order.userId !== user.id) notFound();
+
+  const copy = ORDER_STATUS_COPY[order.status];
+  const latest = order.payments[0];
   const resumeUrl =
-    status === "PENDING" && latest?.status === "CREATED"
-      ? (JSON.parse(latest.meta) as { redirectUrl?: string }).redirectUrl
-      : undefined;
+    order.status === "PAYMENT_PENDING" && latest?.status === "CREATED"
+      ? latest.redirectUrl
+      : null;
+  const canRetry =
+    order.status === "PAYMENT_FAILED" || order.status === "CANCELLED";
 
   return (
     <Section containerClassName="max-w-xl" className="text-center">
-      <p className="text-7xl">{view.emoji}</p>
+      <p className="text-6xl">{ICON[copy.tone]}</p>
       <h1 className="mt-4 font-display text-4xl font-extrabold tracking-tight">
-        {view.title}
+        {copy.headline}
       </h1>
       <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
         {resumeUrl
-          ? "You haven't finished paying yet. Pick up where you left off — the payment link expires 30 minutes after checkout."
-          : view.body}
+          ? "You haven't finished paying yet. Continue to the payment page to complete your order."
+          : copy.body}
       </p>
-
       {typeof error === "string" && (
         <Notice variant="error" className="mx-auto mt-6 max-w-md">
-          {error}
-        </Notice>
-      )}
-      {order.failureReason && status !== "COMPLETED" && (
-        <Notice variant="error" className="mx-auto mt-6 max-w-md">
-          {order.failureReason}
+          {error.slice(0, 200)}
         </Notice>
       )}
 
@@ -101,72 +69,53 @@ export default async function PaymentStatusPage({
             <dd className="font-mono font-bold">{order.id}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Amount</dt>
-            <dd className="font-bold">{formatRupee(order.total)}</dd>
+            <dt className="text-muted-foreground">Gift card value</dt>
+            <dd>{formatINR(order.faceValuePaise)}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Method</dt>
-            <dd>
-              {method ? `${method.emoji} ${method.label}` : order.paymentMethod}
-            </dd>
+            <dt className="text-muted-foreground">Amount</dt>
+            <dd className="font-bold">{formatINR(order.totalPaise)}</dd>
           </div>
-          {latest && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Payment ref</dt>
-              <dd className="font-mono text-xs break-all">
-                {latest.gatewayPaymentId}
-              </dd>
-            </div>
-          )}
-          {status === "COMPLETED" && order.cashback > 0 && (
-            <div className="flex justify-between gap-4 text-primary">
-              <dt className="font-bold">Gems earned 💎</dt>
-              <dd className="font-bold">{formatGems(order.cashback)}</dd>
-            </div>
-          )}
         </dl>
       </Card>
 
       <div className="mt-8 flex flex-col items-center gap-4">
-        {status === "COMPLETED" && (
+        {order.status === "FULFILLED" && (
           <Link
             href={`/orders/${order.id}`}
             className={buttonClasses({ size: "lg" })}
           >
-            View voucher codes 🎟️
+            View your gift card
           </Link>
         )}
-
-        {status === "PENDING" &&
-          (resumeUrl ? (
-            <Link href={resumeUrl} className={buttonClasses({ size: "lg" })}>
-              Complete payment →
-            </Link>
-          ) : (
-            <PaymentStatusPoller orderId={order.id} />
-          ))}
-
-        {(status === "FAILED" || status === "CANCELLED") && (
+        {resumeUrl && (
+          <Link href={resumeUrl} className={buttonClasses({ size: "lg" })}>
+            Continue to payment →
+          </Link>
+        )}
+        {IN_PROGRESS.includes(order.status) && !resumeUrl && (
+          <OrderProgressPoller orderId={order.id} status={order.status} />
+        )}
+        {canRetry && (
           <div className="flex flex-wrap justify-center gap-3">
             <form action={retryPaymentAction.bind(null, order.id)}>
               <SubmitButton size="lg" pendingLabel="Opening payment…">
-                Retry {formatRupee(order.total)} →
+                Try again — {formatINR(order.totalPaise)}
               </SubmitButton>
             </form>
             <Link
-              href="/checkout"
+              href="/cart"
               className={buttonClasses({ size: "lg", variant: "outline" })}
             >
-              Pay another way
+              Back to cart
             </Link>
           </div>
         )}
-
         <Link
-          href="/orders"
+          href={`/orders/${order.id}`}
           className="text-sm font-bold text-primary hover:underline"
         >
-          All orders
+          Order details
         </Link>
       </div>
     </Section>

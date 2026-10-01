@@ -6,10 +6,10 @@ export default function NotFound() {
     <Section className="text-center">
       <p className="font-display text-7xl font-extrabold text-gradient">404</p>
       <h1 className="mt-4 font-display text-3xl font-extrabold">
-        This page ghosted us 👻
+        Page not found
       </h1>
       <p className="mt-3 text-muted-foreground">
-        Maybe the gift card you&apos;re after is on the brands page.
+        The page you&apos;re looking for doesn&apos;t exist or has moved.
       </p>
       <Link href="/brands" className={`mt-7 inline-flex ${buttonClasses()}`}>
         Browse brands

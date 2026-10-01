@@ -51,14 +51,6 @@ function Feedback({ state }: { state: AuthState }) {
     <>
       {state.error && <Notice variant="error">{state.error}</Notice>}
       {state.success && <Notice variant="success">{state.success}</Notice>}
-      {state.devLink && (
-        <Notice variant="info" className="break-all">
-          Dev mode — no email provider yet, so here&apos;s the link:{" "}
-          <a href={state.devLink} className="underline">
-            {state.devLink}
-          </a>
-        </Notice>
-      )}
     </>
   );
 }
@@ -78,7 +70,7 @@ export function ForgotPasswordForm() {
           required
           maxLength={254}
           autoComplete="email"
-          placeholder="you@wherever.in"
+          placeholder="you@example.com"
           className={`mt-1.5 ${inputClasses}`}
         />
       </label>

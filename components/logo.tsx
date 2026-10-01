@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** The gifts19 mark: gradient gift tile + chunky lowercase wordmark. */
+/** The Gifts19 mark: gradient gift tile + chunky lowercase wordmark. */
 export function Logo({ className }: { className?: string }) {
   return (
     <Link href="/" className={cn("flex items-center gap-2", className)}>
@@ -12,7 +12,7 @@ export function Logo({ className }: { className?: string }) {
         🎁
       </span>
       <span className="font-display text-xl font-extrabold tracking-tight">
-        gifts<span className="text-primary">19</span>
+        Gifts<span className="text-primary">19</span>
       </span>
     </Link>
   );

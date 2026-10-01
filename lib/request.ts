@@ -1,27 +1,16 @@
 import { headers } from "next/headers";
+import { trustedIpHeader } from "./config";
 
 /**
- * This deployment's origin for absolute links (gateway return URLs, emails):
- * NEXT_PUBLIC_SITE_URL when set, else the request's own host — so testing
- * from a phone on the LAN comes back to the LAN address, not localhost.
+ * Client IP for rate-limit keys, read only from a header the deployment
+ * vouches for (Vercel's x-real-ip, or X-Forwarded-For when
+ * TRUST_PROXY_HEADERS=true behind your own proxy). Anything else is
+ * client-spoofable, so without one we bucket everyone as "direct" — the
+ * per-account limits still apply.
  */
-export async function requestOrigin(): Promise<string> {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured) return configured.replace(/\/+$/, "");
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3001";
-  const proto =
-    h.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
-
-/** Best-effort client IP (first X-Forwarded-For hop behind a proxy). */
 export async function clientIp(): Promise<string> {
-  const h = await headers();
-  return (
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "unknown"
-  );
+  const header = trustedIpHeader();
+  if (!header) return "direct";
+  const value = (await headers()).get(header);
+  return value?.split(",")[0]?.trim() || "unknown";
 }

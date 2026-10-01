@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { db } from "@/lib/db";
+import { listBrands, listCategories } from "@/lib/catalogue/queries";
 import { categoryEmoji } from "@/lib/giftcards";
+import { cn } from "@/lib/utils";
 import { BrandCard } from "@/components/brand-card";
 import { BrandSearch } from "@/components/brand-search";
 import { Section } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Brands",
-  description: "Browse and search all gift card brands.",
+  description: "Browse and search gift card brands.",
 };
 
 const chip =
@@ -24,31 +24,21 @@ export default async function BrandsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const q = typeof params.q === "string" ? params.q.trim() : "";
+  const q = typeof params.q === "string" ? params.q.trim().slice(0, 60) : "";
   const category = typeof params.category === "string" ? params.category : "";
-
-  const [brands, allCategories] = await Promise.all([
-    db.brand.findMany({
-      where: {
-        ...(q ? { name: { contains: q } } : {}),
-        ...(category ? { category } : {}),
-      },
-      orderBy: [{ featured: "desc" }, { cashbackPct: "desc" }],
-    }),
-    db.brand.findMany({ select: { category: true }, distinct: ["category"] }),
+  const [brands, categories] = await Promise.all([
+    listBrands({ q, category }),
+    listCategories(),
   ]);
-  const categories = allCategories.map((c) => c.category).sort();
 
   return (
     <Section>
       <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
-        All the brands 🛍️
+        All brands
       </h1>
       <p className="mt-3 text-muted-foreground">
-        Every card earns Gems 💎 (1 Gem = ₹1) — full rate on UPI, straight to
-        your wallet.
+        Digital gift cards, delivered to your Gifts19 account.
       </p>
-
       <BrandSearch defaultValue={q} className="mt-7 max-w-xl" />
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -71,8 +61,7 @@ export default async function BrandsPage({
 
       {brands.length === 0 ? (
         <p className="mt-10 rounded-3xl border border-border bg-card p-8 text-sm text-muted-foreground">
-          Nothing matches {q ? `"${q}"` : "that filter"} 😅 — try another search
-          or{" "}
+          No brands match {q ? `"${q}"` : "that filter"}. Try another search or{" "}
           <Link
             href="/brands"
             className="font-bold text-primary hover:underline"
@@ -83,8 +72,8 @@ export default async function BrandsPage({
         </p>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {brands.map((brand) => (
-            <BrandCard key={brand.id} brand={brand} />
+          {brands.map((s) => (
+            <BrandCard key={s.brand.id} summary={s} />
           ))}
         </div>
       )}

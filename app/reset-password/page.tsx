@@ -15,7 +15,7 @@ export default async function ResetPasswordPage({
   return (
     <Section containerClassName="max-w-md">
       <h1 className="font-display text-4xl font-extrabold tracking-tight">
-        New password 🔐
+        Set a new password
       </h1>
       {typeof token === "string" && token ? (
         <>

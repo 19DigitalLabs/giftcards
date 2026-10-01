@@ -1,41 +1,51 @@
+// gifts19 data model. Money is ALWAYS integer paise (₹1 = 100) in fields
+// named *Paise; rates are integer basis points (1% = 100 bps). Never Float.
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  /// Unpooled connection for migrations (Neon/Supabase poolers can't run them).
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Customers & auth ─────────────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  /// Read-only access to the ops console.
+  SUPPORT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  name         String
+  id              String     @id @default(cuid())
+  email           String     @unique
+  name            String
   /// scrypt hash, "salt:hash" hex (lib/password.ts). Never the password.
-  passwordHash String
-  /// Payment method id from lib/payments.ts, picked on brand/checkout pages.
-  preferredPaymentMethod String @default("upi")
+  passwordHash    String
+  role            UserRole   @default(CUSTOMER)
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
   /// Consecutive failed logins; reset on success. Drives the lockout below.
-  failedLogins Int        @default(0)
+  failedLogins    Int        @default(0)
   /// Logins are refused until this time (brute-force lockout).
-  lockedUntil  DateTime?
-  createdAt    DateTime   @default(now())
-  sessions     Session[]
-  resetTokens  PasswordResetToken[]
-  cartItems    CartItem[]
-  orders       Order[]
-  favorites    Favorite[]
-}
-
-model Favorite {
-  id        String   @id @default(cuid())
-  userId    String
-  brandId   String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, brandId])
+  lockedUntil     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  sessions        Session[]
+  authTokens      AuthToken[]
+  cartItems       CartItem[]
+  orders          Order[]
+  favorites       Favorite[]
 }
 
 model Session {
@@ -49,132 +59,654 @@ model Session {
   @@index([userId])
 }
 
-/// One-time password reset link; only the SHA-256 of the token is stored.
-model PasswordResetToken {
-  tokenHash String    @id
+enum AuthTokenPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+/// One-time emailed link (password reset / email verification). Only the
+/// SHA-256 of the token is stored.
+model AuthToken {
+  tokenHash String           @id
   userId    String
+  purpose   AuthTokenPurpose
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId, purpose])
+}
+
+/// Fixed-window counters for the DB-backed rate limiter (lib/rate-limit.ts).
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
+// ─── Catalogue ────────────────────────────────────────────────────────────
+
+enum ProviderStatus {
+  ACTIVE
+  DISABLED
+}
+
+/// An upstream gift-card supplier. Only DEMO exists until a real provider
+/// (e.g. Pine Labs) is onboarded — never seed a fake record for one.
+model Provider {
+  id        String         @id @default(cuid())
+  /// Adapter key in lib/fulfilment/providers, e.g. "DEMO".
+  code      String         @unique
+  name      String
+  status    ProviderStatus @default(ACTIVE)
+  isDemo    Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  brands    Brand[]
+  products  Product[]
+}
+
+enum AvailabilityStatus {
+  ACTIVE
+  DISABLED
+  OUT_OF_STOCK
+}
+
+enum DenominationType {
+  FIXED
+  RANGE
 }
 
 model Brand {
-  id            String      @id @default(cuid())
-  slug          String      @unique
-  name          String
-  category      String
-  description   String
-  /// Brand color (hex) for the initials chip — data, not theme.
-  color         String
-  /// Base cashback rate (the UPI rate); other payment methods scale it.
-  cashbackPct   Float
-  /// JSON array of rupee face values, e.g. "[250,500,1000]" (SQLite has no arrays).
-  denominations String
-  /// JSON array of numbered redemption steps.
-  howToRedeem   String
-  /// JSON array of terms & conditions bullets.
-  terms         String
-  /// Voucher validity from delivery.
-  validityMonths Int        @default(12)
-  featured      Boolean     @default(false)
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  favorites     Favorite[]
+  id               String             @id @default(cuid())
+  slug             String             @unique
+  name             String
+  category         String
+  description      String
+  /// Brand colour (hex) for the initials fallback chip — data, not theme.
+  color            String
+  /// Path under /public, e.g. "/logos/amazon-pay.png". Usage rights must be
+  /// confirmed before production.
+  logoPath         String?
+  /// Effective status shown to customers = provider status, unless an
+  /// admin disabled it (adminDisabled survives catalogue syncs).
+  status           AvailabilityStatus @default(ACTIVE)
+  providerStatus   AvailabilityStatus @default(ACTIVE)
+  adminDisabled    Boolean            @default(false)
+  featured         Boolean            @default(false)
+  providerId       String?
+  providerBrandRef String?
+  terms            String[]
+  howToRedeem      String[]
+  /// Where terms came from: "DEMO" (placeholder) or a provider code.
+  termsSource      String
+  /// Voucher validity as stated by the provider (display only; each voucher
+  /// carries its own expiry).
+  validityMonths   Int?
+  /// Our customer discount for this brand's products (basis points). A
+  /// business rule, not provider data. Product.discountBps overrides it.
+  discountBps      Int                @default(0)
+  lastSyncedAt     DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  provider         Provider?          @relation(fields: [providerId], references: [id])
+  products         Product[]
+  favorites        Favorite[]
+
+  @@unique([providerId, providerBrandRef])
+  @@index([status, category])
 }
 
-/// A home-page carousel slide pointing at a brand.
-model Offer {
-  id        String @id @default(cuid())
-  title     String
-  subtitle  String
-  badge     String
-  brandSlug String
-  sort      Int    @default(0)
+/// Something actually sellable: one denomination of one brand from one
+/// provider.
+model Product {
+  id                 String             @id @default(cuid())
+  brandId            String
+  providerId         String
+  providerProductRef String
+  sku                String             @unique
+  name               String
+  denominationType   DenominationType   @default(FIXED)
+  /// FIXED products: the face value.
+  faceValuePaise     Int?
+  /// RANGE products: allowed face values (not purchasable in the UI yet).
+  minValuePaise      Int?
+  maxValuePaise      Int?
+  currency           String             @default("INR")
+  /// What the provider charges us (from the provider catalogue).
+  costPricePaise     Int?
+  /// What the customer pays (computed by lib/pricing.ts on sync).
+  sellingPricePaise  Int?
+  /// Overrides Brand.discountBps when set.
+  discountBps        Int?
+  /// Effective status (see Brand.status).
+  status             AvailabilityStatus @default(ACTIVE)
+  providerStatus     AvailabilityStatus @default(ACTIVE)
+  adminDisabled      Boolean            @default(false)
+  /// "DEMO" for simulated economics; otherwise the provider code.
+  pricingSource      String
+  lastSyncedAt       DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  brand              Brand              @relation(fields: [brandId], references: [id])
+  provider           Provider           @relation(fields: [providerId], references: [id])
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
+
+  @@unique([providerId, providerProductRef])
+  @@index([brandId, status])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
 }
 
 model CartItem {
-  id           String @id @default(cuid())
-  userId       String
-  brandId      String
-  denomination Int
-  quantity     Int
-  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brand        Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String
+  productId          String
+  quantity           Int
+  /// Selling price when added — only to tell the buyer if it changed.
+  priceAtAddPaise    Int
+  createdAt          DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, brandId, denomination])
+  @@unique([userId, productId])
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────
+
+/// Allowed transitions live in lib/orders/state.ts — the ONLY code that may
+/// change Order.status.
+enum OrderStatus {
+  PAYMENT_PENDING
+  PAYMENT_FAILED
+  /// Buyer backed out / payment session expired before paying.
+  CANCELLED
+  /// Payment verified; queued for fulfilment.
+  PAID
+  /// A processor holds the lease and is talking to the provider.
+  FULFILLING
+  /// Provider accepted but hasn't issued yet, or the result was ambiguous
+  /// and needs a status lookup. Never re-ordered blindly.
+  FULFILMENT_PENDING
+  FULFILLED
+  /// Provider definitively did not issue; a refund follows.
+  FULFILMENT_FAILED
+  /// Needs a human: ambiguous provider state, amount/currency mismatch,
+  /// partial fulfilment, insufficient provider balance, failed refunds.
+  MANUAL_REVIEW
+  REFUND_PENDING
+  REFUNDED
 }
 
 model Order {
-  /// Human-readable id, e.g. "GC-4F2A9C1B".
-  id            String      @id
-  userId        String
-  /// PENDING (awaiting payment) | COMPLETED (paid, codes issued) | FAILED
-  /// (payment failed or expired) | CANCELLED (buyer backed out at the gateway).
-  status        String      @default("PENDING")
-  /// Face value of all cards (what the vouchers are worth).
-  subtotal      Int
-  /// Convenience fee for the chosen payment method (0 for UPI).
-  fee           Int
-  /// Amount charged = subtotal + fee.
-  total         Int
-  /// Cashback the order earns (credited to the wallet only when COMPLETED).
-  cashback      Int
-  /// Payment method id from lib/payments.ts, e.g. "upi", "credit-card".
-  paymentMethod String
-  /// Gateway payment id of the attempt that succeeded.
-  paymentRef    String?
-  failureReason String?
-  paidAt        DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items         OrderItem[]
-  payments      Payment[]
+  /// Human-readable id, e.g. "GC-4F2A9C1B3D".
+  id                  String      @id
+  userId              String
+  status              OrderStatus @default(PAYMENT_PENDING)
+  /// Short internal explanation of the current status (never secrets).
+  statusReason        String?
+  currency            String      @default("INR")
+  /// Snapshots at checkout — product price changes never touch these.
+  faceValuePaise      Int
+  discountPaise       Int
+  feePaise            Int
+  totalPaise          Int
+  costPricePaise      Int
+  /// Client-supplied checkout attempt id; unique per user so a double
+  /// click / retry can't create a second payable order.
+  checkoutKey         String
+  /// The payment that funded this order (first verified capture).
+  capturedPaymentId   String?     @unique
+  /// Set in demo mode: everything about this order is simulated.
+  isTest              Boolean     @default(false)
+  /// Processing lease (lib/orders/state.ts claimOrderForFulfilment).
+  leaseUntil          DateTime?
+  /// Earliest time the processor should look at this order again.
+  nextCheckAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  paidAt              DateTime?
+  fulfilmentStartedAt DateTime?
+  fulfilledAt         DateTime?
+  failedAt            DateTime?
+  manualReviewAt      DateTime?
+  refundStartedAt     DateTime?
+  refundedAt          DateTime?
+  cancelledAt         DateTime?
+  user                User        @relation(fields: [userId], references: [id])
+  items               OrderItem[]
+  payments            Payment[]
+  refunds             Refund[]
 
+  @@unique([userId, checkoutKey])
   @@index([userId, createdAt])
-  @@index([status, createdAt])
+  @@index([status, nextCheckAt])
 }
 
-/// One attempt to pay for an order at the payment gateway.
-model Payment {
-  id               String   @id @default(cuid())
-  orderId          String
-  /// Gateway adapter id from lib/gateway, e.g. "mock" (later "razorpay").
-  gateway          String
-  /// The gateway's own id for this payment.
-  gatewayPaymentId String   @unique
-  method           String
-  /// Rupees requested — checked against what the gateway reports back.
-  amount           Int
-  /// CREATED | PENDING | SUCCESS | FAILED | CANCELLED
-  status           String   @default("CREATED")
-  failureReason    String?
-  /// Gateway-specific JSON (the mock stores its simulated outcome here).
-  meta             String   @default("{}")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+model OrderItem {
+  id                 String              @id @default(cuid())
+  orderId            String
+  productId          String
+  brandId            String
+  providerId         String
+  brandName          String
+  productName        String
+  providerProductRef String
+  quantity           Int
+  currency           String              @default("INR")
+  /// Per-unit snapshots at checkout.
+  faceValuePaise     Int
+  sellingPricePaise  Int
+  discountPaise      Int
+  costPricePaise     Int
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product             @relation(fields: [productId], references: [id])
+  attempts           FulfilmentAttempt[]
+  vouchers           Voucher[]
 
   @@index([orderId])
 }
 
-model OrderItem {
-  id           String    @id @default(cuid())
-  orderId      String
-  brandId      String
-  brandName    String
-  denomination Int
-  quantity     Int
-  /// Brand's base cashback rate at purchase time.
-  cashbackPct  Float
-  /// AES-256-GCM encrypted JSON array of voucher codes (lib/crypto.ts), one
-  /// per unit; "" until the order is COMPLETED.
-  codes        String    @default("")
-  /// Vouchers expire this long after issue (Brand.validityMonths).
-  expiresAt    DateTime?
-  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  brand        Brand     @relation(fields: [brandId], references: [id])
+// ─── Payments ─────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  /// Fully refunded (only after the gateway confirmed the refund).
+  REFUNDED
+}
+
+/// One attempt to pay for an order at the payment gateway.
+model Payment {
+  id               String         @id @default(cuid())
+  orderId          String
+  /// Gateway adapter code from lib/payments/gateways, e.g. "demo".
+  gateway          String
+  gatewayPaymentId String         @unique
+  amountPaise      Int
+  currency         String         @default("INR")
+  status           PaymentStatus  @default(CREATED)
+  failureReason    String?
+  /// Gateway hosted-page URL for resuming an unfinished attempt.
+  redirectUrl      String?
+  /// Succeeded after another payment already funded the order.
+  isExtraCapture   Boolean        @default(false)
+  capturedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events           PaymentEvent[]
+  refunds          Refund[]
+
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+}
+
+enum PaymentEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+/// Every gateway notification we received, deduplicated by the gateway's
+/// own event id. Payloads are sanitised before storage.
+model PaymentEvent {
+  id              String             @id @default(cuid())
+  gateway         String
+  externalEventId String
+  eventType       String
+  paymentId       String?
+  status          PaymentEventStatus @default(RECEIVED)
+  payload         Json?
+  error           String?
+  receivedAt      DateTime           @default(now())
+  processedAt     DateTime?
+  payment         Payment?           @relation(fields: [paymentId], references: [id])
+
+  @@unique([gateway, externalEventId])
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+model Refund {
+  id              String       @id @default(cuid())
+  orderId         String
+  paymentId       String
+  amountPaise     Int
+  currency        String       @default("INR")
+  reason          String
+  status          RefundStatus @default(PENDING)
+  /// Ours; sent to the gateway so a retried refund call can't refund twice.
+  idempotencyKey  String       @unique
+  gatewayRefundId String?      @unique
+  failureReason   String?
+  attempts        Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  completedAt     DateTime?
+  order           Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment         Payment      @relation(fields: [paymentId], references: [id])
+
+  @@index([status])
+}
+
+// ─── Fulfilment ───────────────────────────────────────────────────────────
+
+enum FulfilmentAttemptStatus {
+  /// Row committed; the provider call is about to happen or is in flight.
+  REQUESTED
+  /// Provider accepted, not issued yet.
+  PENDING
+  ISSUED
+  /// Provider issued fewer vouchers than requested.
+  PARTIAL
+  /// Provider definitively did not issue.
+  FAILED
+  /// Timeout / malformed response / provider down — outcome unknown.
+  UNKNOWN
+  /// Status lookup confirmed the provider has no such order.
+  NOT_FOUND
+}
+
+/// One request to the provider for one order line. Committed BEFORE the
+/// provider is called; providerReference is what makes retries safe.
+model FulfilmentAttempt {
+  id                String                  @id @default(cuid())
+  orderId           String
+  orderItemId       String
+  providerId        String
+  /// Ours, unique forever — the provider's idempotency key.
+  providerReference String                  @unique
+  providerOrderRef  String?
+  attemptNumber     Int
+  quantity          Int
+  status            FulfilmentAttemptStatus @default(REQUESTED)
+  /// placeOrder calls made with this reference (idempotent re-sends).
+  placeCalls        Int                     @default(0)
+  statusChecks      Int                     @default(0)
+  errorCode         String?
+  errorMessage      String?
+  /// Provider response with voucher secrets stripped.
+  sanitizedResponse Json?
+  requestedAt       DateTime                @default(now())
+  respondedAt       DateTime?
+  lastCheckedAt     DateTime?
+  nextCheckAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  orderItem         OrderItem               @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  vouchers          Voucher[]
+
+  @@unique([orderItemId, attemptNumber])
+  @@index([status, nextCheckAt])
+}
+
+enum VoucherStatus {
+  ACTIVE
+  VOID
+}
+
+/// One gift card. Code/PIN are AES-256-GCM encrypted (lib/crypto.ts).
+model Voucher {
+  id                  String            @id @default(cuid())
+  orderItemId         String
+  fulfilmentAttemptId String
+  providerId          String
+  providerVoucherRef  String
+  unitIndex           Int
+  codeEncrypted       String
+  pinEncrypted        String?
+  /// Last 4 characters of the code, for the masked display.
+  codeLast4           String
+  keyVersion          String            @default("v1")
+  faceValuePaise      Int
+  currency            String            @default("INR")
+  status              VoucherStatus     @default(ACTIVE)
+  /// Demo/test voucher — not redeemable anywhere.
+  isTest              Boolean           @default(false)
+  issuedAt            DateTime
+  expiresAt           DateTime?
+  revealedAt          DateTime?
+  deliveredAt         DateTime?
+  createdAt           DateTime          @default(now())
+  orderItem           OrderItem         @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  attempt             FulfilmentAttempt @relation(fields: [fulfilmentAttemptId], references: [id], onDelete: Cascade)
+
+  @@unique([fulfilmentAttemptId, unitIndex])
+  @@unique([providerId, providerVoucherRef])
+  @@index([orderItemId])
+}
+
+// ─── Money trail & audit ──────────────────────────────────────────────────
+
+enum LedgerEntryType {
+  /// Money in from the customer (+).
+  PAYMENT_CAPTURED
+  /// Money back to the customer (−).
+  PAYMENT_REFUNDED
+  /// What the provider charged us for issued vouchers (−).
+  PROVIDER_COST
+  /// Provider credited a cost back (+).
+  PROVIDER_COST_REVERSED
+}
+
+/// Append-only money trail. A DB trigger (see migration) rejects UPDATE and
+/// DELETE; corrections are new entries.
+model LedgerEntry {
+  id                  String          @id @default(cuid())
+  orderId             String
+  paymentId           String?
+  refundId            String?
+  fulfilmentAttemptId String?
+  type                LedgerEntryType
+  /// Signed: + money to us, − money out.
+  amountPaise         Int
+  currency            String          @default("INR")
+  externalRef         String?
+  memo                String?
+  /// Stops the same event being booked twice (e.g. "capture:<paymentId>").
+  dedupeKey           String          @unique
+  createdAt           DateTime        @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  /// "SYSTEM", "CUSTOMER", "ADMIN", "CRON", "GATEWAY", "PROVIDER".
+  actorType  String
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  orderId    String?
+  /// Sanitised details (lib/log.ts strips secrets).
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@index([action, createdAt])
+}
+
+enum ReconciliationIssueStatus {
+  OPEN
+  RESOLVED
+}
+
+model ReconciliationIssue {
+  id         String                    @id @default(cuid())
+  type       String
+  /// "CRITICAL" | "HIGH" | "MEDIUM".
+  severity   String
+  status     ReconciliationIssueStatus @default(OPEN)
+  orderId    String?
+  paymentId  String?
+  attemptId  String?
+  details    Json?
+  /// One open record per discrepancy.
+  dedupeKey  String                    @unique
+  detectedAt DateTime                  @default(now())
+  lastSeenAt DateTime                  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, severity])
+}
+
+// ─── Email ────────────────────────────────────────────────────────────────
+
+/// Outbox of the demo email provider (APP_MODE=demo only). Viewable at
+/// /demo/emails by admins, or by the recipient when signed in.
+model DemoEmail {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  template  String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([to, createdAt])
+}
+
+// ─── Simulated external systems (demo mode) ──────────────────────────────
+// These tables play the role of OTHER companies' databases — the demo
+// payment gateway and the demo gift-card provider. Our business logic never
+// reads them directly; only the demo adapters do.
+
+model DemoGatewayPayment {
+  id               String    @id @default(cuid())
+  gatewayPaymentId String    @unique
+  /// Our Payment.id, echoed back on events.
+  merchantRef      String    @unique
+  orderRef         String
+  amountPaise      Int
+  /// What the gateway actually captured (differs in the wrong-amount test).
+  capturedPaise    Int?
+  currency         String
+  /// CREATED | PENDING | SUCCEEDED | FAILED | CANCELLED
+  status           String    @default("CREATED")
+  scenario         String?
+  /// For delayed scenarios: when and to what the payment settles.
+  settleAt         DateTime?
+  settleTo         String?
+  failureReason    String?
+  refundedPaise    Int       @default(0)
+  returnUrl        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model DemoGatewayRefund {
+  id               String   @id @default(cuid())
+  gatewayRefundId  String   @unique
+  gatewayPaymentId String
+  idempotencyKey   String   @unique
+  amountPaise      Int
+  /// SUCCEEDED | FAILED | PENDING
+  status           String
+  failureReason    String?
+  createdAt        DateTime @default(now())
+}
+
+model DemoCatalogueBrand {
+  brandRef       String   @id
+  name           String
+  category       String
+  description    String
+  color          String
+  logoPath       String?
+  /// ACTIVE | DISABLED
+  status         String   @default("ACTIVE")
+  terms          String[]
+  howToRedeem    String[]
+  validityMonths Int
+  featured       Boolean  @default(false)
+  /// Seed-time default for our discount on this brand (bps).
+  defaultDiscountBps Int  @default(100)
+  updatedAt      DateTime @updatedAt
+}
+
+model DemoCatalogueProduct {
+  productRef     String   @id
+  brandRef       String
+  faceValuePaise Int
+  costPaise      Int
+  /// ACTIVE | DISABLED | OUT_OF_STOCK
+  status         String   @default("ACTIVE")
+  updatedAt      DateTime @updatedAt
+}
+
+model DemoProviderOrder {
+  id                String    @id @default(cuid())
+  /// The client (our) reference. Unique only while idempotency is on —
+  /// the non-idempotent test mode appends a suffix to simulate duplicates.
+  providerReference String
+  providerOrderRef  String    @unique
+  productRef        String
+  quantity          Int
+  unitCostPaise     Int
+  /// PENDING | ISSUED | FAILED
+  status            String
+  failureCode       String?
+  /// Settlement for pending scenarios.
+  settleAt          DateTime?
+  settleTo          String?
+  /// Encrypted JSON of the issued test vouchers (even simulated codes are
+  /// never stored in plaintext).
+  vouchersEncrypted String?
+  issuedCount       Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([providerReference])
+}
+
+model DemoProviderAccount {
+  id           String   @id
+  balancePaise Int
+  updatedAt    DateTime @updatedAt
+}
+
+model DemoProviderDebit {
+  id               String   @id @default(cuid())
+  providerOrderRef String   @unique
+  amountPaise      Int
+  createdAt        DateTime @default(now())
+}
+
+/// Demo lab switches (single row, id = "default").
+model DemoControl {
+  id                 String    @id
+  /// Next gift-card provider behaviour (applies to the next new order).
+  providerScenario   String    @default("SUCCESS")
+  /// Keep the scenario after use instead of reverting to SUCCESS.
+  providerSticky     Boolean   @default(false)
+  /// false = provider creates a NEW order when it sees a repeated reference.
+  providerIdempotent Boolean   @default(true)
+  providerDownUntil  DateTime?
+  /// Armed payment scenario shown first on the demo gateway page.
+  paymentScenario    String?
+  /// Next demo refund fails.
+  refundFailNext     Boolean   @default(false)
+  updatedAt          DateTime  @updatedAt
 }

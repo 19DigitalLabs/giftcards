@@ -7,3 +7,8 @@ allowBuilds:
   prisma: true
   "@prisma/client": true
   "@prisma/engines": true
+  # Local Postgres binaries for dev/tests (embedded-postgres).
+  "@embedded-postgres/windows-x64": true
+  "@embedded-postgres/linux-x64": true
+  "@embedded-postgres/darwin-arm64": true
+  "@embedded-postgres/darwin-x64": true

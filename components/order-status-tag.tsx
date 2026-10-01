@@ -1,17 +1,16 @@
+import type { OrderStatus } from "@prisma/client";
+import { ORDER_STATUS_COPY } from "@/lib/order-display";
 import { Tag, type TagVariant } from "@/components/ui";
 
-const STATUS: Record<string, { variant: TagVariant; label: string }> = {
-  COMPLETED: { variant: "lime", label: "✓ completed" },
-  PENDING: { variant: "violet", label: "⏳ payment pending" },
-  FAILED: { variant: "pink", label: "✕ failed" },
-  CANCELLED: { variant: "neutral", label: "– cancelled" },
+const TONE: Record<string, TagVariant> = {
+  success: "lime",
+  progress: "violet",
+  warning: "pink",
+  neutral: "neutral",
 };
 
-/** Order status as a sticker pill. */
-export function OrderStatusTag({ status }: { status: string }) {
-  const { variant, label } = STATUS[status] ?? {
-    variant: "neutral",
-    label: status,
-  };
-  return <Tag variant={variant}>{label}</Tag>;
+/** Order status as a customer-safe pill. */
+export function OrderStatusTag({ status }: { status: OrderStatus }) {
+  const copy = ORDER_STATUS_COPY[status];
+  return <Tag variant={TONE[copy.tone] ?? "neutral"}>{copy.label}</Tag>;
 }
