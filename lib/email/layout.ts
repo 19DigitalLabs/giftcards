@@ -1,5 +1,5 @@
 import { company } from "../company";
-import { isDemoMode, siteUrl } from "../config";
+import { siteUrl } from "../config";
 
 /*
  * Branded HTML email shell — the website's look, built for email clients:
@@ -84,9 +84,6 @@ export function renderHtml(content: EmailContent, subject: string): string {
         `<p style="margin:0 0 14px;font-family:${FONT_BODY};font-size:15px;line-height:24px;color:${C.body};">${esc(p)}</p>`,
     )
     .join("");
-  const demo = isDemoMode()
-    ? `<p style="margin:0 0 8px;font-family:${FONT_BODY};font-size:12px;line-height:18px;color:#ff9d3c;">Demo environment — payments and gift cards are simulated.</p>`
-    : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -137,7 +134,6 @@ export function renderHtml(content: EmailContent, subject: string): string {
 
       <!-- Footer -->
       <tr><td style="padding:24px 12px 0;text-align:center;">
-        ${demo}
         <p style="margin:0 0 8px;font-family:${FONT_BODY};font-size:12px;line-height:18px;color:${C.muted};">
           Questions? <a href="${esc(base)}/account/support" style="color:${C.lime};text-decoration:none;">Contact support</a> or write to ${esc(company.supportEmail)}
         </p>
