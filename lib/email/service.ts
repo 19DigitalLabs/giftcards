@@ -2,6 +2,7 @@ import { appMode, ConfigError, emailProviderCode, siteUrl } from "../config";
 import { db } from "../db";
 import { log } from "../log";
 import { formatINR } from "../money";
+import { brevoEmailProvider } from "./providers/brevo";
 import type { EmailMessage, EmailProvider } from "./types";
 
 /* ─── Providers ─────────────────────────────────────────────────────────── */
@@ -24,7 +25,8 @@ const demoEmailProvider: EmailProvider = {
 
 const PROVIDERS: Record<string, EmailProvider> = {
   demo: demoEmailProvider,
-  // resend: resendEmailProvider,  ← a real provider plugs in here
+  brevo: brevoEmailProvider,
+  // resend: resendEmailProvider,  ← further providers plug in here
 };
 
 export function activeEmailProvider(): EmailProvider {
@@ -33,6 +35,18 @@ export function activeEmailProvider(): EmailProvider {
     throw new ConfigError(`Unknown EMAIL_PROVIDER "${emailProviderCode()}".`);
   if (provider.isDemo && appMode() === "live") {
     throw new ConfigError("The demo email provider is disabled in live mode.");
+  }
+  // Demo mode with a real provider: also keep a copy in the demo inbox, so
+  // testers can still open links if the real email lands in spam.
+  if (!provider.isDemo && appMode() === "demo") {
+    return {
+      code: provider.code,
+      isDemo: false,
+      async send(message) {
+        await demoEmailProvider.send(message);
+        await provider.send(message);
+      },
+    };
   }
   return provider;
 }

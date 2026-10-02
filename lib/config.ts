@@ -148,6 +148,12 @@ export function assertSafeConfig(): void {
   check(paymentWebhookSecret);
   check(cronSecret);
   check(siteUrl);
+  if (emailProviderCode() === "brevo") {
+    if (!process.env.BREVO_API_KEY?.trim())
+      problems.push("BREVO_API_KEY is required when EMAIL_PROVIDER=brevo.");
+    if (!process.env.EMAIL_FROM?.trim())
+      problems.push("EMAIL_FROM is required when EMAIL_PROVIDER=brevo.");
+  }
   if (!process.env.DATABASE_URL) problems.push("DATABASE_URL is required.");
 
   if (mode === "live") {

@@ -52,11 +52,15 @@ export function sanitize(value: unknown, depth = 0): unknown {
 
 function emit(level: Level, event: string, fields: LogFields) {
   if (process.env.LOG_LEVEL === "silent") return;
+  // A caller-supplied `event` field is kept as `detail` so it can never
+  // overwrite the log line's own event name.
+  const { event: detail, ...rest } = fields;
   const line = JSON.stringify({
     ts: new Date().toISOString(),
     level,
     event,
-    ...(sanitize(fields) as object),
+    ...(detail !== undefined ? { detail } : {}),
+    ...(sanitize(rest) as object),
   });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);

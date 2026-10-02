@@ -125,6 +125,15 @@ Scenarios (set from the demo lab):
 
 `EMAIL_PROVIDER=demo` writes to the `DemoEmail` outbox, and nothing is logged except metadata. View it at **`/demo/emails`**: admins see everything, customers see emails addressed to themselves. Templates cover welcome/verify, verify, password reset, payment received, gift card ready (a link, never the code), delay, refund initiated and refund completed.
 
+### Real email via Brevo (free, no domain needed)
+
+1. Create a free account at brevo.com.
+2. **Senders, domains & dedicated IPs → Senders → Add a sender** with an address you own (e.g. your Gmail), and confirm the email Brevo sends you.
+3. **SMTP & API → API keys → Generate** a key.
+4. Set `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM` (the verified sender) and optionally `EMAIL_FROM_NAME`, then redeploy.
+
+Without your own domain, emails may land in spam. Once you have a domain, authenticate it in Brevo (DNS records) and switch `EMAIL_FROM` to e.g. `noreply@gifts19.com`. In demo mode every email is also copied to `/demo/emails`.
+
 ## Admin
 
 Create an admin with `pnpm admin:create` (`ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars), or via `DEMO_ADMIN_*` + `pnpm db:seed` in demo mode. Roles are `CUSTOMER`, `SUPPORT` (read-only console) and `ADMIN`.
