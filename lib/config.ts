@@ -95,7 +95,17 @@ export function siteUrl(): string {
   if (configured) return configured.replace(/\/+$/, "");
   if (readMode() === "live")
     throw new ConfigError("SITE_URL is required in live mode.");
-  // Demo: Vercel provides the deployment hostname; locally, localhost.
+  // Demo on Vercel: production builds use the project's public production
+  // domain (the per-deployment URL sits behind Deployment Protection, which
+  // breaks emailed links); previews use their own URL. Locally, localhost.
+  if (
+    process.env.VERCEL_ENV === "production" &&
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  if (process.env.VERCEL_BRANCH_URL)
+    return `https://${process.env.VERCEL_BRANCH_URL}`;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3001";
 }
