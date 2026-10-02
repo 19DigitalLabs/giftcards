@@ -585,6 +585,7 @@ model DemoEmail {
   subject   String
   template  String
   text      String
+  html      String?
   createdAt DateTime @default(now())
 
   @@index([to, createdAt])

@@ -47,21 +47,35 @@ export default async function DemoEmailsPage() {
                   {e.template}
                 </p>
                 <p className="mt-1 font-display font-extrabold">{e.subject}</p>
-                <pre className="mt-3 text-sm whitespace-pre-wrap text-muted-foreground">
-                  {e.text.split(/(https?:\/\/\S+)/).map((part, i) =>
-                    /^https?:\/\//.test(part) ? (
-                      <a
-                        key={i}
-                        href={part}
-                        className="break-all text-primary underline"
-                      >
-                        {part}
-                      </a>
-                    ) : (
-                      part
-                    ),
-                  )}
-                </pre>
+                {e.html && (
+                  // Sandboxed: no scripts; links may open in a new tab.
+                  <iframe
+                    title={e.subject}
+                    srcDoc={e.html}
+                    sandbox="allow-popups allow-popups-to-escape-sandbox"
+                    className="mt-3 h-[640px] w-full rounded-2xl border border-border bg-background"
+                  />
+                )}
+                <details className="mt-3" open={!e.html}>
+                  <summary className="cursor-pointer text-xs font-bold text-muted-foreground">
+                    Plain-text version
+                  </summary>
+                  <pre className="mt-3 text-sm whitespace-pre-wrap text-muted-foreground">
+                    {e.text.split(/(https?:\/\/\S+)/).map((part, i) =>
+                      /^https?:\/\//.test(part) ? (
+                        <a
+                          key={i}
+                          href={part}
+                          className="break-all text-primary underline"
+                        >
+                          {part}
+                        </a>
+                      ) : (
+                        part
+                      ),
+                    )}
+                  </pre>
+                </details>
               </Card>
             </li>
           ))}

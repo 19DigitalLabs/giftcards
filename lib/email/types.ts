@@ -9,6 +9,8 @@ export interface EmailMessage {
   subject: string;
   /** Plain-text body. May contain one-time links — never log it. */
   text: string;
+  /** Branded HTML version (lib/email/layout.ts). */
+  html?: string;
   /** Template id, for metadata/logging. */
   template: string;
 }

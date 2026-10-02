@@ -48,6 +48,7 @@ export const brevoEmailProvider: EmailProvider = {
         to: [{ email: message.to }],
         subject: message.subject,
         textContent: message.text,
+        ...(message.html ? { htmlContent: message.html } : {}),
         tags: [message.template],
       }),
       signal: AbortSignal.timeout(10_000),
