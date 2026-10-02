@@ -20,16 +20,13 @@ export const company = {
   ),
   gstin: env("COMPANY_GSTIN", "[PLACEHOLDER — GSTIN]"),
   cin: env("COMPANY_CIN", "[PLACEHOLDER — CIN, if applicable]"),
-  supportEmail: env("SUPPORT_EMAIL", "support@example.com"),
+  supportEmail: env("SUPPORT_EMAIL", "support@gifts19.com"),
   supportHours: env("SUPPORT_HOURS", "Mon–Sat, 10:00–18:00 IST"),
   grievanceOfficer: env(
     "GRIEVANCE_OFFICER",
     "[PLACEHOLDER — Grievance Officer name]",
   ),
-  grievanceEmail: env(
-    "GRIEVANCE_EMAIL",
-    "[PLACEHOLDER — grievance@yourdomain]",
-  ),
+  grievanceEmail: env("GRIEVANCE_EMAIL", "grievance@gifts19.com"),
   lastUpdated: "1 October 2026",
 };
 

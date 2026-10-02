@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Refund & cancellation policy" };
 
 export default function RefundPolicyPage() {
   return (
-    <LegalPage title="Refund & cancellation policy">
+    <LegalPage legal title="Refund & cancellation policy">
       <h2>If we can&apos;t deliver your gift card</h2>
       <p>
         If your payment succeeds but we can&apos;t issue your gift card, we

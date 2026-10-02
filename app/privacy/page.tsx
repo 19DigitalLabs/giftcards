@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Privacy policy" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy">
+    <LegalPage legal title="Privacy policy">
       <h2>What we collect</h2>
       <ul>
         <li>

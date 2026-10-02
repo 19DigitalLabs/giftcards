@@ -2,7 +2,7 @@
  * Creates an admin, or promotes an existing user. Works in any APP_MODE.
  * Credentials come from the environment — nothing is hard-coded:
  *
- *   ADMIN_EMAIL=ops@example.com ADMIN_PASSWORD='…' pnpm admin:create
+ *   ADMIN_EMAIL=ops@gifts19.com ADMIN_PASSWORD='…' pnpm admin:create
  */
 import { db } from "../lib/db";
 import { hashPassword, newPasswordSchema } from "../lib/password";

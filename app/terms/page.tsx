@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Terms & conditions" };
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms & conditions">
+    <LegalPage legal title="Terms & conditions">
       <p>
         These terms govern your use of Gifts19, operated by {company.legalName}{" "}
         (&quot;we&quot;, &quot;us&quot;).
