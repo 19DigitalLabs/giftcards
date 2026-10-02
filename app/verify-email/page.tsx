@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { verifyEmailToken } from "@/lib/auth-service";
 import { getSessionUser } from "@/lib/auth";
-import { isDemoMode } from "@/lib/config";
+import { emailProviderCode, isDemoMode } from "@/lib/config";
 import { ResendVerificationForm } from "@/components/resend-verification-form";
 import { buttonClasses, Card, Notice, Section } from "@/components/ui";
 
@@ -55,15 +55,24 @@ export default async function VerifyEmailPage({
         Click it to confirm your email — you&apos;ll need that before buying a
         gift card.
       </p>
-      {isDemoMode() && (
-        <Notice variant="info" className="mt-6">
-          Demo environment: emails aren&apos;t really sent.{" "}
-          <Link href="/demo/emails" className="underline">
-            Open the demo inbox
-          </Link>{" "}
-          to click your link.
-        </Notice>
-      )}
+      {isDemoMode() &&
+        (emailProviderCode() === "demo" ? (
+          <Notice variant="info" className="mt-6">
+            Demo environment: emails aren&apos;t really sent.{" "}
+            <Link href="/demo/emails" className="underline">
+              Open the demo inbox
+            </Link>{" "}
+            to click your link.
+          </Notice>
+        ) : (
+          <Notice variant="info" className="mt-6">
+            Can&apos;t find it? Check your spam folder, or{" "}
+            <Link href="/demo/emails" className="underline">
+              open the demo inbox
+            </Link>
+            .
+          </Notice>
+        ))}
       <Card className="mt-6 space-y-4">
         {user && !user.emailVerifiedAt && <ResendVerificationForm />}
         <Link
