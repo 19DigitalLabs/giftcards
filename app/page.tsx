@@ -2,7 +2,7 @@ import Link from "next/link";
 import { listBrands } from "@/lib/catalogue/queries";
 import { BrandCard } from "@/components/brand-card";
 import { BrandSearch } from "@/components/brand-search";
-import { buttonClasses, Card, Section, Tag } from "@/components/ui";
+import { buttonClasses, Card, Section } from "@/components/ui";
 
 const steps = [
   {
@@ -41,14 +41,13 @@ export default async function HomePage() {
           className="pointer-events-none absolute top-10 right-0 size-80 rounded-full bg-pink/15 blur-3xl"
         />
         <div className="relative">
-          <Tag variant="violet">Digital gift cards · India</Tag>
-          <h1 className="mt-5 max-w-3xl font-display text-5xl font-extrabold tracking-tight sm:text-6xl">
+          <h1 className="max-w-3xl font-display text-5xl font-extrabold tracking-tight sm:text-6xl">
             Gift cards for the brands{" "}
             <span className="text-gradient">you actually use</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-            Shopping, food, travel and entertainment — {all.length} brands,
-            clear pricing, and your code delivered straight to your account.
+            Treat yourself or someone you love — pick a brand, choose a value,
+            and use it online or in store.
           </p>
           <BrandSearch className="mt-8 max-w-xl" />
         </div>

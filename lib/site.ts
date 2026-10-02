@@ -6,9 +6,9 @@ export interface NavItem {
 /** Site-wide identity and navigation. */
 export const siteConfig = {
   name: "Gifts19",
-  tagline: "Digital gift cards from India's favourite brands",
+  tagline: "Gift cards for the brands you love",
   description:
-    "Buy digital gift cards for popular Indian brands — shopping, food, travel and entertainment — delivered to your account.",
+    "Buy gift cards for your favourite brands — for yourself or someone special. Use them online or in store.",
   nav: [
     { label: "Home", href: "/" },
     { label: "Brands", href: "/brands" },
