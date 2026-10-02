@@ -7,7 +7,7 @@ import type {
 import { audit, type ActorType } from "../audit";
 import { encrypt, KEY_VERSION } from "../crypto";
 import { db, isUniqueViolation } from "../db";
-import { sendTemplateEmail } from "../email/service";
+import { notifyCustomer } from "../notifications";
 import { UserFacingError } from "../errors";
 import { recordLedgerEntry } from "../ledger";
 import { log } from "../log";
@@ -502,7 +502,7 @@ async function storeVouchers(
 async function finishFulfilled(order: Order) {
   const user = await db.user.findUnique({ where: { id: order.userId } });
   if (!user) return;
-  const sent = await sendTemplateEmail("GIFT_CARD_READY", user.email, {
+  const sent = await notifyCustomer("GIFT_CARD_READY", user, {
     name: user.name,
     orderId: order.id,
   });
@@ -555,7 +555,7 @@ async function settleOrder(
     });
     const user = await db.user.findUnique({ where: { id: order.userId } });
     if (user)
-      await sendTemplateEmail("FULFILMENT_DELAYED", user.email, {
+      await notifyCustomer("FULFILMENT_DELAYED", user, {
         name: user.name,
         orderId: order.id,
       });

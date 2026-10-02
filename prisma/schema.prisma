@@ -35,6 +35,11 @@ model User {
   role            UserRole   @default(CUSTOMER)
   status          UserStatus @default(ACTIVE)
   emailVerifiedAt DateTime?
+  /// Mobile number, E.164 digits without "+" (e.g. 919876543210).
+  phone           String?
+  /// Explicit consent to WhatsApp order updates (required by WhatsApp).
+  whatsappOptIn   Boolean    @default(false)
+  whatsappOptInAt DateTime?
   /// Consecutive failed logins; reset on success. Drives the lockout below.
   failedLogins    Int        @default(0)
   /// Logins are refused until this time (brute-force lockout).

@@ -134,6 +134,25 @@ Scenarios (set from the demo lab):
 
 Without your own domain, emails may land in spam. Once you have a domain, authenticate it in Brevo (DNS records) and switch `EMAIL_FROM` to e.g. `noreply@gifts19.com`. With a real provider on, the demo inbox (`/demo/emails`) and its links are turned off.
 
+### WhatsApp order updates (Meta WhatsApp Cloud API)
+
+Customers add a mobile number on **Profile** and tick *Send me order updates on WhatsApp*. They then get: payment received, gift card ready, order delayed, refund started/completed, and support replies. Messages carry links only, never gift card codes. Email is always sent too.
+
+1. developers.facebook.com → **My Apps → Create app** (type *Business*) → add the **WhatsApp** product.
+2. **WhatsApp → API Setup**: note the **Phone number ID**. Under *To*, add up to 5 test recipient numbers (each confirms a code). The free test number can message only these.
+3. Create a permanent token: Business Settings → **System users** → add a user → **Generate token** with `whatsapp_business_messaging` (the API Setup token expires in 24h).
+4. **WhatsApp Manager → Message templates → Create** each template below (Category **Utility**, Language **English**, name exactly as shown).
+5. Set `WHATSAPP_PROVIDER=meta`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (and optionally `WHATSAPP_MESSAGE_MODE=text` to test before templates are approved — only reaches people who messaged your number in the last 24h).
+
+| Template name | Body |
+|---|---|
+| `gifts19_payment_received` | Hi {{1}}, we've received your payment of {{2}} for Gifts19 order {{3}}. We're preparing your gift card now. Track it here: {{4}} |
+| `gifts19_gift_card_ready` | Hi {{1}}, your Gifts19 gift card for order {{2}} is ready. For your security we never send codes on WhatsApp — sign in to view it: {{3}} |
+| `gifts19_order_delayed` | Hi {{1}}, your Gifts19 order {{2}} is taking a little longer than usual. Your payment is safe and there's nothing you need to do. Status: {{3}} |
+| `gifts19_refund_started` | Hi {{1}}, we couldn't complete Gifts19 order {{2}}, so we've started a refund of {{3}} to your original payment method. Banks usually take 5–7 working days. |
+| `gifts19_refund_completed` | Hi {{1}}, your refund of {{2}} for Gifts19 order {{3}} has been processed by our payment partner. |
+| `gifts19_support_reply` | Hi {{1}}, our support team replied to your Gifts19 ticket {{2}}. Read it here: {{3}} |
+
 ## Admin
 
 Create an admin with `pnpm admin:create` (`ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars), or via `DEMO_ADMIN_*` + `pnpm db:seed` in demo mode. Roles are `CUSTOMER`, `SUPPORT` (read-only console) and `ADMIN`.

@@ -118,6 +118,11 @@ export function giftCardProviderCode(): string {
   return (process.env.GIFT_CARD_PROVIDER?.trim() || "DEMO").toUpperCase();
 }
 
+/** "meta" = WhatsApp Cloud API notifications; anything else = off. */
+export function whatsappProviderCode(): string {
+  return (process.env.WHATSAPP_PROVIDER?.trim() || "off").toLowerCase();
+}
+
 /** Emails go to the demo outbox (/demo/emails) instead of real inboxes. */
 export function usesDemoInbox(): boolean {
   return isDemoMode() && emailProviderCode() === "demo";
@@ -163,6 +168,16 @@ export function assertSafeConfig(): void {
   check(paymentWebhookSecret);
   check(cronSecret);
   check(siteUrl);
+  if (whatsappProviderCode() === "meta") {
+    if (!process.env.WHATSAPP_ACCESS_TOKEN?.trim())
+      problems.push(
+        "WHATSAPP_ACCESS_TOKEN is required when WHATSAPP_PROVIDER=meta.",
+      );
+    if (!process.env.WHATSAPP_PHONE_NUMBER_ID?.trim())
+      problems.push(
+        "WHATSAPP_PHONE_NUMBER_ID is required when WHATSAPP_PROVIDER=meta.",
+      );
+  }
   if (emailProviderCode() === "brevo") {
     if (!process.env.BREVO_API_KEY?.trim())
       problems.push("BREVO_API_KEY is required when EMAIL_PROVIDER=brevo.");

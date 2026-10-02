@@ -1,6 +1,6 @@
 import { audit, type ActorType } from "../audit";
 import { db, isUniqueViolation } from "../db";
-import { sendTemplateEmail } from "../email/service";
+import { notifyCustomer } from "../notifications";
 import { UserFacingError } from "../errors";
 import { recordLedgerEntry } from "../ledger";
 import { log } from "../log";
@@ -60,7 +60,7 @@ export async function requestRefund(req: RefundRequest) {
       where: { id: req.orderId },
       include: { user: true },
     });
-    await sendTemplateEmail("REFUND_INITIATED", order.user.email, {
+    await notifyCustomer("REFUND_INITIATED", order.user, {
       name: order.user.name,
       orderId: order.id,
       amountPaise: req.amountPaise,
@@ -200,7 +200,7 @@ async function completeRefund(
       where: { id: refund.order.userId },
     });
     if (user) {
-      await sendTemplateEmail("REFUND_COMPLETED", user.email, {
+      await notifyCustomer("REFUND_COMPLETED", user, {
         name: user.name,
         orderId: refund.orderId,
         amountPaise: refund.amountPaise,

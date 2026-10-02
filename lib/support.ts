@@ -4,6 +4,7 @@ import { z } from "zod";
 import { audit } from "./audit";
 import { db } from "./db";
 import { sendTemplateEmail } from "./email/service";
+import { notifyCustomer } from "./notifications";
 import { NotFoundError, UserFacingError } from "./errors";
 import { enforceRateLimit } from "./rate-limit";
 
@@ -202,7 +203,7 @@ export async function staffReply(
     data: { status, replied: Boolean(text) },
   });
   if (text) {
-    await sendTemplateEmail("SUPPORT_REPLY", ticket.user.email, {
+    await notifyCustomer("SUPPORT_REPLY", ticket.user, {
       name: ticket.user.name,
       ticketId,
     });

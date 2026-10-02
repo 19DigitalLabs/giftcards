@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser, requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { publicMessage } from "@/lib/errors";
+import { normalizePhone } from "@/lib/phone";
 import { addCustomerMessage, createTicket, staffReply } from "@/lib/support";
 
 export interface FormState {
@@ -23,7 +24,30 @@ export async function updateProfileAction(
   const name = String(formData.get("name") ?? "").trim();
   if (name.length < 2 || name.length > 80)
     return { error: "Name must be 2–80 characters." };
-  await db.user.update({ where: { id: user.id }, data: { name } });
+
+  const phoneInput = String(formData.get("phone") ?? "").trim();
+  const phone = phoneInput ? normalizePhone(phoneInput) : null;
+  if (phoneInput && !phone) {
+    return {
+      error:
+        "Enter a valid mobile number, e.g. 98765 43210 or +91 98765 43210.",
+    };
+  }
+  // WhatsApp needs a number and an explicit tick; the opt-in time is kept.
+  const optIn = Boolean(phone) && formData.get("whatsappOptIn") === "on";
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      name,
+      phone,
+      whatsappOptIn: optIn,
+      whatsappOptInAt: optIn
+        ? user.whatsappOptIn
+          ? user.whatsappOptInAt
+          : new Date()
+        : null,
+    },
+  });
   revalidatePath("/", "layout");
   return { success: "Profile updated." };
 }

@@ -21,7 +21,18 @@ function Feedback({ state }: { state: FormState }) {
   );
 }
 
-export function ProfileForm({ name }: { name: string }) {
+export function ProfileForm({
+  name,
+  phone,
+  whatsappOptIn,
+  whatsappEnabled,
+}: {
+  name: string;
+  phone: string;
+  whatsappOptIn: boolean;
+  /** WhatsApp notifications are configured on this deployment. */
+  whatsappEnabled: boolean;
+}) {
   const [state, action] = useActionState<FormState, FormData>(
     updateProfileAction,
     {},
@@ -40,6 +51,37 @@ export function ProfileForm({ name }: { name: string }) {
           className={`mt-1.5 ${inputClasses}`}
         />
       </label>
+      <label className={label}>
+        Mobile number{" "}
+        <span className="font-normal text-muted-foreground">(optional)</span>
+        <input
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          defaultValue={phone}
+          maxLength={20}
+          autoComplete="tel"
+          placeholder="98765 43210"
+          className={`mt-1.5 ${inputClasses}`}
+        />
+      </label>
+      {whatsappEnabled && (
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            name="whatsappOptIn"
+            defaultChecked={whatsappOptIn}
+            className="mt-0.5 size-4 accent-primary"
+          />
+          <span>
+            <span className="font-bold">Send me order updates on WhatsApp</span>
+            <span className="block text-xs text-muted-foreground">
+              Payment, gift card ready, refund and support updates. Never your
+              gift card code. You can turn this off any time.
+            </span>
+          </span>
+        </label>
+      )}
       <Feedback state={state} />
       <SubmitButton size="sm" pendingLabel="Saving…">
         Save changes

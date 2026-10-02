@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { usesDemoInbox } from "@/lib/config";
+import { usesDemoInbox, whatsappProviderCode } from "@/lib/config";
+import { formatPhone } from "@/lib/phone";
 import { db } from "@/lib/db";
 import { formatINR } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
@@ -76,7 +77,12 @@ export default async function ProfilePage({
           Personal details
         </h2>
         <div className="mt-5 space-y-5">
-          <ProfileForm name={user.name} />
+          <ProfileForm
+            name={user.name}
+            phone={user.phone ? formatPhone(user.phone) : ""}
+            whatsappOptIn={user.whatsappOptIn}
+            whatsappEnabled={whatsappProviderCode() === "meta"}
+          />
           <div className="max-w-md">
             <p className="text-sm font-bold">Email</p>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">

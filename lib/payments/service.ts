@@ -2,7 +2,7 @@ import type { Order, Payment } from "@prisma/client";
 import { audit, type ActorType } from "../audit";
 import { siteUrl } from "../config";
 import { db, isUniqueViolation } from "../db";
-import { sendTemplateEmail } from "../email/service";
+import { notifyCustomer } from "../notifications";
 import { UserFacingError } from "../errors";
 import { recordLedgerEntry } from "../ledger";
 import { log } from "../log";
@@ -474,7 +474,7 @@ async function applyCapture(
     });
     const user = await db.user.findUnique({ where: { id: order.userId } });
     if (user) {
-      await sendTemplateEmail("PAYMENT_RECEIVED", user.email, {
+      await notifyCustomer("PAYMENT_RECEIVED", user, {
         name: user.name,
         orderId: order.id,
         amountPaise: state.amountPaise,
