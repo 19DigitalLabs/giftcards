@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { isDemoMode } from "@/lib/config";
+import { usesDemoInbox } from "@/lib/config";
 import { db } from "@/lib/db";
 import { Card, Notice, Section } from "@/components/ui";
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
  * customers see only messages addressed to their own email.
  */
 export default async function DemoEmailsPage() {
-  if (!isDemoMode()) notFound();
+  if (!usesDemoInbox()) notFound(); // real email is on
   const user = await requireUser("/demo/emails");
   const isAdmin = user.role === "ADMIN";
   const emails = await db.demoEmail.findMany({

@@ -41,18 +41,6 @@ export function activeEmailProvider(): EmailProvider {
   if (provider.isDemo && appMode() === "live") {
     throw new ConfigError("The demo email provider is disabled in live mode.");
   }
-  // Demo mode with a real provider: also keep a copy in the demo inbox, so
-  // testers can still open links if the real email lands in spam.
-  if (!provider.isDemo && appMode() === "demo") {
-    return {
-      code: provider.code,
-      isDemo: false,
-      async send(message) {
-        await demoEmailProvider.send(message);
-        await provider.send(message);
-      },
-    };
-  }
   return provider;
 }
 

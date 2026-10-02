@@ -132,7 +132,7 @@ Scenarios (set from the demo lab):
 3. **SMTP & API → API keys → Generate** a key.
 4. Set `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM` (the verified sender) and optionally `EMAIL_FROM_NAME`, then redeploy.
 
-Without your own domain, emails may land in spam. Once you have a domain, authenticate it in Brevo (DNS records) and switch `EMAIL_FROM` to e.g. `noreply@gifts19.com`. In demo mode every email is also copied to `/demo/emails`.
+Without your own domain, emails may land in spam. Once you have a domain, authenticate it in Brevo (DNS records) and switch `EMAIL_FROM` to e.g. `noreply@gifts19.com`. With a real provider on, the demo inbox (`/demo/emails`) and its links are turned off.
 
 ## Admin
 

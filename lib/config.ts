@@ -118,6 +118,11 @@ export function giftCardProviderCode(): string {
   return (process.env.GIFT_CARD_PROVIDER?.trim() || "DEMO").toUpperCase();
 }
 
+/** Emails go to the demo outbox (/demo/emails) instead of real inboxes. */
+export function usesDemoInbox(): boolean {
+  return isDemoMode() && emailProviderCode() === "demo";
+}
+
 export function emailProviderCode(): string {
   return (process.env.EMAIL_PROVIDER?.trim() || "demo").toLowerCase();
 }

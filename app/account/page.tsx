@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { isDemoMode } from "@/lib/config";
+import { usesDemoInbox } from "@/lib/config";
 import { db } from "@/lib/db";
 import { formatINR } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
@@ -115,7 +115,7 @@ export default async function ProfilePage({
           </p>
           <div className="mt-4 max-w-sm space-y-3">
             <ResendVerificationForm />
-            {isDemoMode() && (
+            {usesDemoInbox() && (
               <Link
                 href="/demo/emails"
                 className="block text-xs font-bold text-primary hover:underline"

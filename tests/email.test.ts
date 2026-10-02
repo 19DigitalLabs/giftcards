@@ -18,7 +18,7 @@ describe("Brevo email provider", () => {
     vi.unstubAllGlobals();
   });
 
-  it("posts to Brevo's API and keeps a demo-inbox copy in demo mode", async () => {
+  it("posts to Brevo's API and does not use the demo inbox", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
@@ -45,7 +45,7 @@ describe("Brevo email provider", () => {
     expect(body.subject).toContain("Reset");
     expect(
       await db.demoEmail.count({ where: { to: "family@example.org" } }),
-    ).toBe(1);
+    ).toBe(0);
   });
 
   it("a Brevo failure is reported without leaking the email body", async () => {
