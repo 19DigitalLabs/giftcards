@@ -46,6 +46,7 @@ model User {
   cartItems       CartItem[]
   orders          Order[]
   favorites       Favorite[]
+  supportTickets  SupportTicket[]
 }
 
 model Session {
@@ -290,6 +291,7 @@ model Order {
   items               OrderItem[]
   payments            Payment[]
   refunds             Refund[]
+  supportTickets      SupportTicket[]
 
   @@unique([userId, checkoutKey])
   @@index([userId, createdAt])
@@ -709,4 +711,47 @@ model DemoControl {
   /// Next demo refund fails.
   refundFailNext     Boolean   @default(false)
   updatedAt          DateTime  @updatedAt
+}
+
+// ─── Support ──────────────────────────────────────────────────────────────
+
+enum SupportTicketStatus {
+  OPEN
+  /// Staff replied; waiting on the customer.
+  AWAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+/// A customer support request, optionally about one of their orders.
+model SupportTicket {
+  /// Human-readable, e.g. TKT-8F2A9C.
+  id        String              @id
+  userId    String
+  orderId   String?
+  /// ORDER_NOT_RECEIVED | CODE_NOT_WORKING | PAYMENT | REFUND | ACCOUNT | OTHER
+  category  String
+  subject   String
+  status    SupportTicketStatus @default(OPEN)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages  SupportMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([status, updatedAt])
+}
+
+model SupportMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  /// CUSTOMER | STAFF
+  author    String
+  authorId  String?
+  body      String
+  createdAt DateTime      @default(now())
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
 }

@@ -22,6 +22,7 @@ export default async function AdminLayout({
     { href: "/admin/orders", label: "Orders" },
     { href: "/admin/catalogue", label: "Catalogue" },
     { href: "/admin/reconciliation", label: "Reconciliation" },
+    { href: "/admin/support", label: "Support" },
     { href: "/admin/users", label: "Users" },
     ...(isDemoMode() ? [{ href: "/admin/demo-lab", label: "Demo lab" }] : []),
   ];

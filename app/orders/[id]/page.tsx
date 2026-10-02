@@ -164,7 +164,7 @@ export default async function OrderPage({
           ← All orders
         </Link>
         <Link
-          href={`/support?order=${order.id}`}
+          href={`/account/support/new?order=${order.id}`}
           className={buttonClasses({ variant: "ghost" })}
         >
           Get help with this order

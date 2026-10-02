@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { siteConfig } from "@/lib/site";
 import { Logo } from "@/components/logo";
 import { NavLink } from "@/components/nav-link";
+import { UserMenu } from "@/components/user-menu";
 import { buttonClasses, Container } from "@/components/ui";
 
 export async function SiteHeader() {
@@ -30,11 +31,6 @@ export async function SiteHeader() {
                   <NavLink href={item.href} label={item.label} />
                 </li>
               ))}
-              {isStaff && (
-                <li>
-                  <NavLink href="/admin" label="Admin" />
-                </li>
-              )}
             </ul>
           </nav>
         </div>
@@ -50,12 +46,7 @@ export async function SiteHeader() {
             </span>
           </Link>
           {user ? (
-            <Link
-              href="/account"
-              className="hidden rounded-full px-3 py-2 text-sm font-bold transition-colors hover:text-primary sm:block"
-            >
-              {user.name.split(" ")[0]}
-            </Link>
+            <UserMenu name={user.name} email={user.email} isStaff={isStaff} />
           ) : (
             <>
               <Link
@@ -92,12 +83,11 @@ export async function SiteHeader() {
                 {[
                   ...siteConfig.nav,
                   ...(user
-                    ? [{ label: "Account", href: "/account" }]
+                    ? []
                     : [
                         { label: "Log in", href: "/login" },
                         { label: "Sign up", href: "/signup" },
                       ]),
-                  ...(isStaff ? [{ label: "Admin", href: "/admin" }] : []),
                 ].map((item) => (
                   <li key={item.href}>
                     <Link

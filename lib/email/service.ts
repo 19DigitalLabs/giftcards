@@ -47,13 +47,16 @@ export type EmailTemplate =
   | "GIFT_CARD_READY"
   | "FULFILMENT_DELAYED"
   | "REFUND_INITIATED"
-  | "REFUND_COMPLETED";
+  | "REFUND_COMPLETED"
+  | "SUPPORT_TICKET_CREATED"
+  | "SUPPORT_REPLY";
 
 interface TemplateData {
   name?: string;
   link?: string;
   orderId?: string;
   amountPaise?: number;
+  ticketId?: string;
 }
 
 function render(
@@ -104,6 +107,17 @@ function render(
       return {
         subject: `Refund completed for order ${d.orderId}`,
         text: `${hi}\n\nYour refund of ${formatINR(d.amountPaise ?? 0)} for order ${d.orderId} has been processed by our payment partner.${sign}`,
+      };
+    case "SUPPORT_TICKET_CREATED":
+      return {
+        subject: `We've received your request (${d.ticketId})`,
+        text: `${hi}\n\nThanks for contacting Gifts19 support. Your ticket ${d.ticketId} is open and we'll reply soon.\n\nView it here: ${siteUrl()}/account/support/${d.ticketId}${sign}`,
+      };
+    case "SUPPORT_REPLY":
+      return {
+        subject: `New reply on your support ticket ${d.ticketId}`,
+        // No message body in email: replies are read in the account.
+        text: `${hi}\n\nOur support team replied to your ticket ${d.ticketId}. Sign in to read it:\n\n${siteUrl()}/account/support/${d.ticketId}${sign}`,
       };
   }
 }

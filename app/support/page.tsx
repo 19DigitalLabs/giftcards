@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { company } from "@/lib/company";
 import { db } from "@/lib/db";
 import { LegalPage } from "@/components/legal-page";
+import { buttonClasses } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Support" };
 
@@ -30,9 +31,25 @@ export default async function SupportPage({
 
   return (
     <LegalPage title="Support">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-5">
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-foreground">Fastest way to get help</p>
+          <p>Raise a ticket and track our replies in your account.</p>
+        </div>
+        <Link
+          href={
+            user
+              ? `/account/support/new${orderId ? `?order=${orderId}` : ""}`
+              : "/login?next=%2Faccount%2Fsupport%2Fnew"
+          }
+          className={buttonClasses({ size: "sm" })}
+        >
+          Raise a ticket
+        </Link>
+      </div>
       <p>
-        We&apos;re here {company.supportHours}. Email{" "}
-        <strong>{company.supportEmail}</strong> and include your order ID so we
+        We&apos;re here {company.supportHours}. You can also email{" "}
+        <strong>{company.supportEmail}</strong> — include your order ID so we
         can help quickly.
       </p>
       {orderId && (

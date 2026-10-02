@@ -119,7 +119,11 @@ export function Tag({ variant = "neutral", className, ...props }: TagProps) {
 
 /** Text input styles shared by every form. */
 export const inputClasses =
-  "h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm outline-none transition-colors focus:border-primary/60 placeholder:text-muted-foreground";
+  "h-10 w-full rounded-xl border border-border bg-background px-3.5 text-sm outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground";
+
+/** Multi-line variant of inputClasses. */
+export const textareaClasses =
+  "w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground";
 
 const noticeVariants = {
   error: "border-pink/40 bg-pink/10 text-pink",

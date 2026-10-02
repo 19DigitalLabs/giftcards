@@ -1,149 +1,173 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { logoutAction, logoutEverywhereAction } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
-import { summarize } from "@/lib/catalogue/queries";
 import { isDemoMode } from "@/lib/config";
 import { db } from "@/lib/db";
+import { formatINR } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
-import { BrandCard } from "@/components/brand-card";
-import { ChangePasswordForm } from "@/components/password-forms";
+import { ProfileForm } from "@/components/account-forms";
+import { OrderStatusTag } from "@/components/order-status-tag";
 import { ResendVerificationForm } from "@/components/resend-verification-form";
-import { Button, Card, Notice, Section } from "@/components/ui";
+import { Card, Notice } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Account" };
+export const metadata: Metadata = { title: "Profile" };
 
-const label =
-  "text-xs font-extrabold tracking-widest text-muted-foreground uppercase";
-
-export default async function AccountPage({
+export default async function ProfilePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser("/account");
   const { password } = await searchParams;
-  const [orderCount, favorites] = await Promise.all([
+  const [orderCount, openTickets, recent] = await Promise.all([
     db.order.count({ where: { userId: user.id } }),
-    db.favorite.findMany({
-      where: { userId: user.id, brand: { status: { not: "DISABLED" } } },
-      include: { brand: { include: { products: true } } },
+    db.supportTicket.count({
+      where: { userId: user.id, status: { in: ["OPEN", "AWAITING_CUSTOMER"] } },
+    }),
+    db.order.findMany({
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      take: 3,
+      include: { items: { select: { brandName: true } } },
     }),
   ]);
 
   return (
-    <Section containerClassName="max-w-2xl">
-      <h1 className="font-display text-4xl font-extrabold tracking-tight">
-        Your account
-      </h1>
+    <div className="space-y-6">
       {password === "reset" && (
-        <Notice variant="success" className="mt-6">
+        <Notice variant="success">
           Password reset — you&apos;ve been signed out of every other device.
         </Notice>
       )}
 
-      <Card className="mt-7">
-        <dl className="space-y-4 text-sm">
-          <div>
-            <dt className={label}>Name</dt>
-            <dd className="mt-0.5 font-display text-lg font-extrabold">
-              {user.name}
-            </dd>
-          </div>
-          <div>
-            <dt className={label}>Email</dt>
-            <dd className="mt-0.5">
-              {user.email}{" "}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link
+          href="/orders"
+          className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+        >
+          <p className="text-xs font-bold text-muted-foreground">Orders</p>
+          <p className="mt-1 font-display text-2xl font-extrabold">
+            {orderCount}
+          </p>
+        </Link>
+        <Link
+          href="/account/support"
+          className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+        >
+          <p className="text-xs font-bold text-muted-foreground">
+            Open tickets
+          </p>
+          <p className="mt-1 font-display text-2xl font-extrabold">
+            {openTickets}
+          </p>
+        </Link>
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-bold text-muted-foreground">
+            Member since
+          </p>
+          <p className="mt-1 font-display text-lg font-extrabold">
+            {formatDate(user.createdAt.toISOString(), "en-IN")}
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <h2 className="font-display text-lg font-extrabold">
+          Personal details
+        </h2>
+        <div className="mt-5 space-y-5">
+          <ProfileForm name={user.name} />
+          <div className="max-w-md">
+            <p className="text-sm font-bold">Email</p>
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+              {user.email}
               {user.emailVerifiedAt ? (
-                <span className="ml-2 text-xs font-bold text-primary">
-                  ✓ verified
+                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
+                  Verified
                 </span>
               ) : (
-                <span className="ml-2 text-xs font-bold text-orange">
-                  not verified
+                <span className="rounded-full bg-orange/15 px-2 py-0.5 text-xs font-bold text-orange">
+                  Not verified
                 </span>
               )}
-            </dd>
-          </div>
-          <div>
-            <dt className={label}>Member since</dt>
-            <dd className="mt-0.5">
-              {formatDate(user.createdAt.toISOString(), "en-IN")}
-            </dd>
-          </div>
-          <div>
-            <dt className={label}>Orders</dt>
-            <dd className="mt-0.5">
-              {orderCount} ·{" "}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              To change your email address,{" "}
               <Link
-                href="/orders"
-                className="font-bold text-primary hover:underline"
+                href="/account/support/new"
+                className="text-primary hover:underline"
               >
-                view all
+                contact support
               </Link>
-            </dd>
+              .
+            </p>
           </div>
-        </dl>
-        {!user.emailVerifiedAt && (
-          <div className="mt-6 space-y-3">
-            <Notice variant="info">Verify your email to buy gift cards.</Notice>
+        </div>
+      </Card>
+
+      {!user.emailVerifiedAt && (
+        <Card>
+          <h2 className="font-display text-lg font-extrabold">
+            Verify your email
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You need a verified email to buy gift cards.
+          </p>
+          <div className="mt-4 max-w-sm space-y-3">
             <ResendVerificationForm />
             {isDemoMode() && (
               <Link
                 href="/demo/emails"
-                className="block text-center text-xs font-bold text-primary hover:underline"
+                className="block text-xs font-bold text-primary hover:underline"
               >
-                Open the demo inbox
+                Open the demo inbox →
               </Link>
             )}
           </div>
-        )}
-        <div className="mt-7 grid gap-3 sm:grid-cols-2">
-          <form action={logoutAction}>
-            <Button variant="outline" className="w-full">
-              Log out
-            </Button>
-          </form>
-          <form action={logoutEverywhereAction}>
-            <Button variant="ghost" className="w-full">
-              Log out of all devices
-            </Button>
-          </form>
-        </div>
-      </Card>
-
-      <Card className="mt-4">
-        <h2 className="font-display text-lg font-extrabold">Change password</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Other devices are signed out when you change it.
-        </p>
-        <div className="mt-5">
-          <ChangePasswordForm />
-        </div>
-      </Card>
-
-      <h2 className="mt-10 font-display text-2xl font-extrabold tracking-tight">
-        Saved brands
-      </h2>
-      {favorites.length === 0 ? (
-        <p className="mt-4 rounded-3xl border border-border bg-card p-6 text-sm text-muted-foreground">
-          Tap ♡ Save on any{" "}
-          <Link
-            href="/brands"
-            className="font-bold text-primary hover:underline"
-          >
-            brand page
-          </Link>{" "}
-          to keep it here.
-        </p>
-      ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {favorites.map((f) => (
-            <BrandCard key={f.id} summary={summarize(f.brand)} />
-          ))}
-        </div>
+        </Card>
       )}
-    </Section>
+
+      {recent.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg font-extrabold">
+              Recent orders
+            </h2>
+            <Link
+              href="/orders"
+              className="text-sm font-bold text-primary hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+          <ul className="mt-4 divide-y divide-border">
+            {recent.map((o) => (
+              <li key={o.id}>
+                <Link
+                  href={`/orders/${o.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3 hover:text-primary"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold">
+                      {[...new Set(o.items.map((i) => i.brandName))].join(", ")}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-mono">{o.id}</span> ·{" "}
+                      {formatDate(o.createdAt.toISOString(), "en-IN")}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <OrderStatusTag status={o.status} />
+                    <span className="text-sm font-bold">
+                      {formatINR(o.totalPaise)}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
   );
 }
